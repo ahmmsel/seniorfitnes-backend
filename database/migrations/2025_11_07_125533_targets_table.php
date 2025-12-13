@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -17,7 +18,11 @@ return new class extends Migration
             $table->integer('target_calories');
             $table->integer('target_steps');
             $table->decimal('target_water_liters', 5, 2);
-            $table->unique(['trainee_profile_id', 'target_date']);
+            // Date for the target (one per day per trainee)
+            // Use a NOT NULL column with a sensible default (current date).
+            $table->date('target_date')->default(DB::raw('CURRENT_DATE'));
+            // Unique per trainee per date
+            $table->unique(['trainee_profile_id', 'target_date'], 'targets_trainee_date_uq');
             $table->timestamps();
         });
     }
@@ -27,6 +32,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('daily_targets');
+        Schema::dropIfExists('targets');
     }
 };
