@@ -1,0 +1,232 @@
+==========================================
+NEW FEATURE IMPLEMENTATION TEMPLATE
+==========================================
+
+FEATURE NAME: [Enter Feature Name]
+CREATED: [Date]
+DEVELOPER: [Name]
+
+1. FEATURE OVERVIEW
+-------------------
+Purpose:
+[What problem does this feature solve?]
+
+User Stories:
+- As a [user type], I want to [action] so that [benefit]
+- As a [user type], I want to [action] so that [benefit]
+
+Business Rules:
+- [Rule 1]
+- [Rule 2]
+
+2. DATABASE DESIGN
+------------------
+Tables Required:
+- table_name_1 (columns: id, field1, field2, timestamps)
+- table_name_2 (columns: id, field1, field2, timestamps)
+
+Relationships:
+- ModelA hasMany ModelB
+- ModelB belongsTo ModelA
+
+Indexes:
+- table_name(field1, field2) for performance
+- table_name(field3) unique
+
+3. API ENDPOINTS
+----------------
+Endpoint 1:
+  Method: GET
+  URL: /api/resource
+  Auth: Required (sanctum)
+  Query Params: ?param1=value&param2=value
+  Request Body: N/A
+  Success Response (200):
+    {
+      "data": [...],
+      "pagination": {...}
+    }
+  Error Responses:
+    401: Unauthenticated
+    404: Resource not found
+
+Endpoint 2:
+  Method: POST
+  URL: /api/resource
+  Auth: Required
+  Request Body (JSON):
+    {
+      "field1": "value",
+      "field2": 123
+    }
+  Validation Rules:
+    - field1: required|string|max:255
+    - field2: required|integer|min:0
+  Success Response (201):
+    {
+      "message": "Created successfully",
+      "data": {...}
+    }
+  Error Responses:
+    422: Validation failed
+
+4. VALIDATION RULES
+-------------------
+StoreRequest:
+  - field1: required|string|max:255
+  - field2: nullable|integer
+
+UpdateRequest:
+  - field1: sometimes|string|max:255
+  - field2: sometimes|integer
+
+Authorization:
+  - Only authenticated users
+  - Only resource owner can update/delete
+
+5. BUSINESS LOGIC
+-----------------
+Service Methods Needed:
+
+getAll(array $filters): array
+  - Query with filters
+  - Apply pagination
+  - Return formatted results
+
+create(array $data, $request): array
+  - Validate business rules
+  - Create record
+  - Handle media uploads if needed
+  - Return success response
+
+update(Model $model, array $data): array
+  - Check ownership
+  - Update record
+  - Return updated data
+
+delete(Model $model): array
+  - Check ownership
+  - Soft delete or hard delete
+  - Return success message
+
+Business Rules:
+- [Rule 1: e.g., User can only create 10 items per day]
+- [Rule 2: e.g., Status must be pending before approval]
+
+6. MODEL RELATIONSHIPS
+----------------------
+Model: FeatureModel
+Relationships:
+  - belongsTo(User)
+  - hasMany(RelatedModel)
+  - belongsToMany(AnotherModel)
+
+Accessors:
+  - getImageUrlAttribute(): string
+  - getFormattedDateAttribute(): string
+
+Scopes:
+  - scopeActive($query)
+  - scopeByUser($query, $userId)
+
+7. MEDIA/FILE HANDLING
+-----------------------
+Collections:
+  - feature_images (single file or multiple)
+
+Validation:
+  - Image types: jpeg, jpg, png, webp
+  - Max size: 5MB
+
+Storage:
+  - Disk: public
+  - Visibility: public
+
+8. NOTIFICATIONS/EVENTS
+------------------------
+Events to Dispatch:
+  - FeatureCreated (listener: SendNotification)
+  - FeatureUpdated
+
+Notifications:
+  - Notify users via database channel
+  - Include: title, message, data payload
+
+9. TESTING SCENARIOS
+--------------------
+Feature Tests:
+  - Can create resource with valid data
+  - Cannot create with invalid data
+  - Can list resources with pagination
+  - Can update own resource
+  - Cannot update others' resource
+  - Can delete own resource
+  - Returns proper error codes
+
+Unit Tests:
+  - Service creates record correctly
+  - Service applies filters correctly
+  - Service handles media uploads
+
+Edge Cases:
+  - What if user reaches limit?
+  - What if related record is deleted?
+  - What if file upload fails?
+
+10. IMPLEMENTATION CHECKLIST
+-----------------------------
+☐ Create migration file
+☐ Run migration: php artisan migrate
+☐ Create Model with relationships
+☐ Create FormRequest classes (Store, Update)
+☐ Create Service class
+☐ Create Controller (thin, using service)
+☐ Create Resource class (if needed)
+☐ Register routes in api.php
+☐ Write feature tests
+☐ Update API documentation
+☐ Test all endpoints manually
+☐ Verify backward compatibility (if updating existing)
+☐ Code review
+☐ Deploy to staging
+☐ Notify Flutter team of new endpoints
+
+11. FILES TO CREATE/UPDATE
+---------------------------
+New Files:
+- database/migrations/YYYY_MM_DD_HHmmss_create_feature_table.php
+- app/Models/FeatureModel.php
+- app/Http/Requests/Feature/StoreFeatureRequest.php
+- app/Http/Requests/Feature/UpdateFeatureRequest.php
+- app/Services/FeatureService.php
+- app/Http/Controllers/Api/FeatureController.php
+- app/Http/Resources/FeatureResource.php (optional)
+- tests/Feature/FeatureTest.php
+
+Updated Files:
+- routes/api.php (add routes)
+- docs/api_openapi.yaml (document endpoints)
+
+12. DEPENDENCIES
+----------------
+Services Used:
+- AuthService (for user context)
+- NotificationService (for alerts)
+
+External Packages:
+- None (or list packages like Spatie Media Library)
+
+13. ROLLBACK PLAN
+-----------------
+If feature needs to be reverted:
+1. Remove routes from api.php
+2. Run migration rollback: php artisan migrate:rollback
+3. Remove controller/service files
+4. Clear caches: php artisan cache:clear
+
+14. NOTES
+---------
+- [Any additional notes, concerns, or decisions made]
+- [Link to related features or documentation]
+
+==========================================

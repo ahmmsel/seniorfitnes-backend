@@ -1,0 +1,137 @@
+SuniorFit API Reference (Auth + Purchases + Plans + Notifications)
+===============================================================
+
+Authentication Flow
+-------------------
+POST /api/auth/login
+  Headers: Content-Type: application/json
+  Body: { "email": "coach@example.com", "password": "secret" }
+  Response 200: { "user": { ... }, "token": "<plain Sanctum token>" }
+
+GET /api/auth/check
+  Headers: Authorization: Bearer <token>
+  Response 200: { "has_coach_profile": true|false, "has_trainee_profile": true|false }
+
+Trainee Notifications
+---------------------
+GET /api/trainee/notifications
+  Auth: trainee token
+  Response 200:
+    {
+      "count": 2,
+      "notifications": [
+        {
+          "id": "uuid",
+          "type": "PlanCreatedNotification",
+          "title": "Plan ready",
+          "message": "Your coach created a plan for you",
+          "data": { "plan_id": 55, "trainee_plan_id": 123, "title_ar": "...", "message_ar": "..." },
+          "read_at": null,
+          "created_at": "2025-11-27T21:56:39+00:00",
+          "time_ago": "2 hours ago"
+        }
+      ]
+    }
+  Errors: 401 unauthenticated
+
+Coach Notifications
+-------------------
+GET /api/coach/notifications
+  Auth: coach token
+  Response 200 identical structure as trainee notifications (titles/messages pulled from notification data).
+  Errors: 401 unauthenticated, 404 if profile missing.
+
+Coach View: Trainee Purchases
+-----------------------------
+GET /api/coach/trainee-plans/pending
+  Auth: coach token
+  Response 200: { "pending": [ TraineePlan objects with trainee.user + coach_profile.user ] }
+  Fields per item: id, trainee_id, plan_id (null), coach_profile_id, plan_type, items (array/json), tap_charge_id, purchased_at, status="pending", trainee.user (name/email), coach_profile.user, timestamps.
+  Errors: 403 {"message":"Not a coach"}
+
+GET /api/coach/trainee-plans/completed
+  Auth: coach token
+  Response 200: { "completed": [ same shape but status="completed" and plan_id filled ] }
+
+Plan Management (Coach creates plan from pending purchase)
+---------------------------------------------------------
+GET /api/plans
+  Auth: token (any role)
+  Response 200: { "plans": [ Plan with coach, workouts, meals ] }
+
+GET /api/plans/{plan}
+  Response 200: { "plan": { ... } }
+
+POST /api/plans
+  Auth: coach token
+  Body (JSON):
+    {
+      "trainee_plan_id": 123,
+      "type": "nutrition",
+      "title": "12-week nutrition plan",
+      "description": "optional",
+      "workout_ids": [10,11],
+      "meal_ids": [21]
+    }
+  Behavior: validates pending TraineePlan ownership, creates Plan, syncs workouts/meals, marks TraineePlan completed, attaches plan to trainee pivot (with tap_charge_id/purchased_at/items), notifies trainee.
+  Response 201: { "message": "Plan created for purchase", "plan": { ... } }
+  Errors: 403 (not coach/owner), 422 (validation), 500 (unexpected).
+
+PATCH /api/plans/{plan}
+  Auth: coach token with permission
+  Body: any of type/title/description/workout_ids/meal_ids.
+  Response 200: { "message": "Plan updated", "plan": { ... } }
+
+DELETE /api/plans/{plan}
+  Auth: coach token with permission
+  Response 200: { "message": "Plan deleted" }
+
+Purchases (Trainee initiates Tap payment)
+----------------------------------------
+POST /api/purchases
+  Auth: trainee token
+  Body: { "coach_profile_id": 7, "type": "nutrition", ... }
+  Behavior: calculates amount from CoachProfile pricing, calls Tap REST API via TapPaymentService, returns checkout URL + charge id.
+  Response 200: { "checkout_url": "https://checkout.tap.company/...", "charge_id": "ch_123" }
+  Errors: 403 (not trainee), 422 (invalid data/pricing missing), 500 (Tap error, details in response).
+
+Tap Webhook + Redirect (for payments)
+-------------------------------------
+POST /api/payment/tap/webhook
+  Auth: none (Tap callback)
+  Behavior: verifies HMAC signature from Tap headers, logs payload, creates TraineePlan with status "pending", notifies coach. Idempotent.
+
+GET /api/payment/tap/redirect
+  Auth: none (Tap redirect landing). Typically just shows result screen.
+
+Discover Coaches
+----------------
+GET /api/discover/coaches
+  Auth: token
+  Query params: specialty, min/max_experience, min/max_nutrition_price, min/max_workout_price, min/max_full_package_price, per_page (default 10).
+  Response: Laravel paginator with simplified coach objects (id, name, email, specialty, years_of_experience, pricing fields).
+
+Meals & Workouts
+----------------
+GET /api/meals
+GET /api/meals/{meal}
+  Auth: token; returns meal catalog.
+
+Workouts prefix (/api/workouts/...)
+  Includes logs, completed, progress, etc. All protected by auth.
+
+Challenge Routes
+----------------
+GET /api/challenges
+GET /api/challenges/{challenge}
+POST /api/challenges/{challenge}/join
+POST /api/challenges/{challenge}/complete-day
+GET /api/challenges/{challenge}/leaderboard
+  Auth: token; used for challenge UI flows.
+
+General Notes
+-------------
+- All protected endpoints require `Authorization: Bearer <Sanctum token>` and `Accept: application/json`.
+- Validation errors return 422; unauthenticated requests return 401; unauthorized actions return 403 with `{"message":"Not a coach"}` when appropriate.
+- Notifications endpoints currently return the last 50 unread notifications; they include `title`, `message`, `data`, `created_at`, `time_ago`.
+- Pending/completed trainee plan endpoints allow coaches to build dashboards showing purchase status and linking to plan creation.

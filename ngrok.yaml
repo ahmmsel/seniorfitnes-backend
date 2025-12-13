@@ -1,0 +1,11 @@
+authtoken: 32oyRB31hxr5hm3zBcRYIumHmOh_wY9RNKVgnaQSQ15p8ciu
+
+tunnels:
+  site:
+    proto: http
+    addr: 80
+    subdomain: suniorfit # free/pro ngrok subdomain
+    bind_tls: true # enable HTTPS
+    request_header:
+      add:
+        Host: suniorfit.test

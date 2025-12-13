@@ -1,0 +1,295 @@
+===============================================
+SUNIORFIT BACKEND - CLEAN ARCHITECTURE GUIDE
+===============================================
+
+PRINCIPLES:
+-----------
+1. Controllers are THIN - only handle HTTP concerns
+2. Services contain ALL business logic
+3. Form Requests handle ALL validation
+4. Models handle ONLY database relationships and accessors
+5. Resources format API responses consistently
+6. Maintain BACKWARD COMPATIBILITY at all costs
+
+FOLDER STRUCTURE:
+-----------------
+app/
+├── Http/
+│   ├── Controllers/
+│   │   └── Api/           (Thin controllers - route handlers only)
+│   ├── Requests/          (Form validation classes)
+│   │   ├── Auth/
+│   │   ├── Trainee/
+│   │   ├── Coach/
+│   │   ├── Tracking/
+│   │   └── ...
+│   └── Resources/         (API response transformers)
+├── Services/              (Business logic layer)
+│   ├── AuthService.php
+│   ├── TraineeProfileService.php
+│   ├── CoachProfileService.php
+│   ├── WorkoutService.php
+│   ├── PlanService.php
+│   └── ...
+├── Models/                (Eloquent models - relations only)
+└── Repositories/          (Optional - for complex queries)
+
+CONTROLLER PATTERN:
+-------------------
+<?php
+namespace App\Http\Controllers\Api;
+
+use App\Http\Requests\...Request;
+use App\Services\...Service;
+
+class ExampleController extends Controller
+{
+    public function __construct(
+        protected ExampleService $service
+    ) {}
+
+    public function index(Request $request)
+    {
+        $result = $this->service->getAll($request->validated());
+        return response()->json($result, 200);
+    }
+
+    public function store(StoreRequest $request)
+    {
+        $result = $this->service->create($request->validated(), $request);
+        return response()->json($result, 201);
+    }
+}
+
+RULES:
+- Constructor injection for services
+- No business logic in controller methods
+- No inline validation
+- Return service results directly
+- Preserve exact response structure
+
+SERVICE PATTERN:
+----------------
+<?php
+namespace App\Services;
+
+use App\Models\...;
+use Illuminate\Support\Facades\Auth;
+
+class ExampleService
+{
+    public function getAll(array $filters = []): array
+    {
+        // Business logic here
+        $items = Model::query()
+            ->when(isset($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->get();
+
+        return [
+            'items' => $items,
+            'count' => $items->count(),
+        ];
+    }
+
+    public function create(array $data, $request = null): array
+    {
+        // Create logic
+        $item = Model::create($data);
+
+        // Handle media if provided
+        if ($request && $request->hasFile('image')) {
+            $item->addMediaFromRequest('image')->toMediaCollection('images');
+        }
+
+        return [
+            'message' => 'Created successfully',
+            'item' => $item,
+        ];
+    }
+}
+
+RULES:
+- One service per domain/model
+- Type hint return types
+- Use dependency injection for other services
+- Keep methods focused and single-responsibility
+- Return arrays that match exact API response structure
+
+FORM REQUEST PATTERN:
+---------------------
+<?php
+namespace App\Http\Requests\Feature;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        // Authorization logic (or return true if handled elsewhere)
+        return $this->user() !== null;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'status' => 'nullable|in:active,inactive',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Name is required',
+            'email.email' => 'Please provide valid email',
+        ];
+    }
+}
+
+RULES:
+- One request class per action (store, update, etc)
+- Group by feature in subdirectories
+- Use authorize() for access control when appropriate
+- Validation rules must match existing API behavior
+
+BACKWARD COMPATIBILITY CHECKLIST:
+----------------------------------
+Before committing any refactor:
+☐ All route URLs unchanged
+☐ All request field names unchanged
+☐ All response keys unchanged
+☐ All status codes unchanged
+☐ All error messages unchanged (unless improving)
+☐ All validation rules preserved
+☐ Test with Flutter app if possible
+
+REFACTORING WORKFLOW:
+---------------------
+1. Identify controller with inline validation or business logic
+2. Create FormRequest class with validation rules
+3. Create or update Service class with business logic
+4. Update Controller to use FormRequest and Service
+5. Test endpoint - ensure exact same response
+6. Commit with descriptive message
+
+NAMING CONVENTIONS:
+-------------------
+Controllers:  {Feature}Controller (e.g., WorkoutController)
+Services:     {Feature}Service (e.g., WorkoutService)
+Requests:     {Action}{Feature}Request (e.g., StoreWorkoutRequest)
+Resources:    {Feature}Resource (e.g., WorkoutResource)
+
+DEPENDENCY INJECTION:
+---------------------
+- Inject services via constructor
+- Use type hints for auto-resolution
+- Services can inject other services
+- Avoid facade usage in services when DI is cleaner
+
+ERROR HANDLING:
+---------------
+Services should throw exceptions:
+- ModelNotFoundException for 404
+- ValidationException for 422
+- AuthorizationException for 403
+
+Controllers catch or let middleware handle
+
+TESTING STRATEGY:
+-----------------
+- Unit test services (business logic)
+- Feature test controllers (HTTP)
+- Use factories for test data
+- Mock external APIs
+- Assert exact response structure matches docs
+
+COMMON ANTI-PATTERNS TO AVOID:
+-------------------------------
+✗ Business logic in controllers
+✗ Validation in controllers
+✗ Direct model queries in controllers
+✗ Fat controllers, thin services
+✗ Services returning responses/redirects
+✗ Breaking backward compatibility
+✗ Changing response structure
+✗ Removing fields from responses
+
+MIGRATION PRIORITY:
+-------------------
+High Priority (complex logic):
+- Authentication controllers
+- Payment/Purchase flow
+- Profile management
+- Workout/Exercise tracking
+
+Medium Priority:
+- Meal management
+- Challenge system
+- Community features
+
+Low Priority (already clean):
+- Simple CRUD controllers
+- Resource controllers with services already
+
+NEW FEATURE CHECKLIST:
+----------------------
+When adding new features, create files in this order:
+
+1. docs/architecture/features/{feature-name}.txt
+   Document: purpose, endpoints, request/response format
+
+2. database/migrations/YYYY_MM_DD_create_{table}_table.php
+   Create necessary tables
+
+3. app/Models/{Model}.php
+   Define model with relationships
+
+4. app/Http/Requests/{Feature}/{Action}Request.php
+   Create validation request classes
+
+5. app/Services/{Feature}Service.php
+   Implement business logic
+
+6. app/Http/Controllers/Api/{Feature}Controller.php
+   Create thin controller
+
+7. app/Http/Resources/{Feature}Resource.php (if needed)
+   Format API responses
+
+8. routes/api.php
+   Register routes
+
+9. tests/Feature/{Feature}Test.php
+   Write feature tests
+
+REVIEW PROCESS:
+---------------
+Before marking refactor complete:
+1. Run php artisan test
+2. Check all routes still work: php artisan route:list
+3. Verify no duplicate logic between services
+4. Check all services have proper type hints
+5. Ensure all FormRequests have authorize() and rules()
+6. Confirm backward compatibility
+
+DOCUMENTATION:
+--------------
+Update after refactoring:
+- docs/api_openapi.yaml (if response changes)
+- docs/architecture/features/{feature}.txt
+- README.md (if setup changes)
+
+QUESTIONS TO ASK DURING REFACTOR:
+----------------------------------
+- Is this logic HTTP-specific or business logic?
+- Should validation be in FormRequest or Service?
+- Is the response structure preserved exactly?
+- Can this service method be reused elsewhere?
+- Are we injecting dependencies properly?
+- Is this the single source of truth for this operation?
+
+===============================================
+Last Updated: 2025-11-30
+===============================================

@@ -1,0 +1,163 @@
+{
+  "status": "CAPTURED",
+  "raw": {
+    "id": "chg_TS02A1420250928t9T62711170",
+    "object": "charge",
+    "live_mode": false,
+    "customer_initiated": true,
+    "api_version": "V2",
+    "method": "GET",
+    "status": "CAPTURED",
+    "amount": 300,
+    "currency": "AED",
+    "threeDSecure": true,
+    "card_threeDSecure": true,
+    "save_card": false,
+    "product": "GOSELL",
+    "description": "Purchase nutrition plan from coach #1",
+    "metadata": {
+      "trainee_id": "1",
+      "coach_profile_id": "1",
+      "plan_type": "nutrition"
+    },
+    "order": {
+      "id": "ord_Khm92325928SXmQ27zM10G354"
+    },
+    "transaction": {
+      "authorization_id": "109612",
+      "timezone": "UTC+03:00",
+      "created": "1764235694170",
+      "expiry": {
+        "period": 30,
+        "type": "MINUTE"
+      },
+      "asynchronous": false,
+      "amount": 81.69,
+      "currency": "USD",
+      "date": {
+        "created": 1764235694170,
+        "completed": 1764235759671,
+        "transaction": 1764235694170
+      }
+    },
+    "reference": {
+      "track": "tck_TS04A1420250928j9M02711187",
+      "payment": "14272509281118759248",
+      "acquirer": "533109109612",
+      "gateway": "123456789"
+    },
+    "response": {
+      "code": "000",
+      "message": "Captured"
+    },
+    "card_security": {
+      "code": "M",
+      "message": "MATCH"
+    },
+    "security": {
+      "threeDSecure": {
+        "id": "auth_payer_drvf425929TV9627JE10t619",
+        "status": "Y"
+      }
+    },
+    "acquirer": {
+      "response": {
+        "code": "00",
+        "message": "Approved"
+      }
+    },
+    "gateway": {
+      "response": {
+        "code": "0",
+        "message": "APPROVED"
+      }
+    },
+    "card": {
+      "object": "card",
+      "first_six": "512345",
+      "first_eight": "51234500",
+      "scheme": "MASTERCARD",
+      "brand": "MASTERCARD",
+      "last_four": "0008"
+    },
+    "receipt": {
+      "id": "201527250928112809",
+      "email": true,
+      "sms": true
+    },
+    "customer": {
+      "id": "cus_TS03A1720250929x6ZB2711689",
+      "first_name": "Trainee",
+      "email": "email@example.com"
+    },
+    "merchant": {
+      "country": "EG",
+      "currency": "USD",
+      "id": "67992490"
+    },
+    "source": {
+      "object": "token",
+      "type": "CARD_NOT_PRESENT",
+      "payment_type": "DEBIT",
+      "channel": "INTERNET",
+      "id": "tok_TS00A325929doTN27Dc10f815",
+      "on_file": false,
+      "payment_method": "MASTERCARD"
+    },
+    "redirect": {
+      "status": "SUCCESS",
+      "url": "http://192.168.1.8:8000/api/payment/tap/redirect"
+    },
+    "post": {
+      "status": "PENDING",
+      "url": "http://192.168.1.8:8000/api/payment/tap/webhook"
+    },
+    "authentication": {
+      "version": "3DS2",
+      "acsEci": "02",
+      "authentication_token": "kHyn+7YFi1EUAREAAAAvNUe6Hv8=",
+      "transaction_id": "e5ff6608-9f72-4589-961d-a119017d357e",
+      "paRes_status": "Y",
+      "protocol_version": "2.2.0",
+      "transaction_status": "Y",
+      "ds_transaction_id": "e5ff6608-9f72-4589-961d-a119017d357e",
+      "mode": "C",
+      "acs_transaction_id": "754ed211-b7cd-4a0e-9de6-cd0954262d60",
+      "provider": "MPGS",
+      "id": "auth_payer_drvf425929TV9627JE10t619",
+      "status": "AUTHENTICATED"
+    },
+    "activities": [
+      {
+        "id": "activity_TS03A1820250929Ja722711848",
+        "object": "activity",
+        "created": 1764235694170,
+        "status": "INITIATED",
+        "currency": "AED",
+        "amount": 300,
+        "remarks": "charge - created",
+        "txn_id": "chg_TS02A1420250928t9T62711170"
+      },
+      {
+        "id": "activity_TS01A1920250929r5D12711671",
+        "object": "activity",
+        "created": 1764235759671,
+        "status": "CAPTURED",
+        "currency": "USD",
+        "amount": 81.69,
+        "remarks": "charge - captured",
+        "txn_id": "chg_TS02A1420250928t9T62711170"
+      }
+    ],
+    "auto_reversed": false,
+    "intent": {
+      "id": "intent_wt4Y1425928i6kG27FQ10X288"
+    },
+    "protect": {
+      "id": "protect_TS011820250929Me0k2711817",
+      "is_in_exclusion_list": true,
+      "status": "SCREENED"
+    },
+    "initiator": "CUSTOMER"
+  }
+}

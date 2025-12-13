@@ -1,0 +1,2539 @@
+openapi: 3.0.3
+info:
+  title: SuniorFit API
+  version: 1.1.0
+  description: |
+    REST API for the SuniorFit backend. This document mirrors `routes/api.php`
+    and the current controller/service layer so frontend and partner teams can
+    integrate against a single source of truth. All responses follow JSON unless
+    otherwise stated.
+servers:
+  - url: https://api.suniorfit.local
+    description: Local development
+  - url: https://api.suniorfit.com
+    description: Production
+tags:
+  - name: Auth
+    description: Authentication and session bootstrap.
+  - name: Profiles
+    description: Trainee or coach profile CRUD endpoints.
+  - name: Notifications
+    description: Notification feeds for trainees and coaches.
+  - name: Purchases
+    description: Purchasing flow and Tap charge creation.
+  - name: Discover
+    description: Filterable coach discovery listings.
+  - name: Meals
+    description: Meal catalog that coaches can attach to plans.
+  - name: Plans
+    description: Plan CRUD plus trainee purchase conversion.
+  - name: Workouts
+    description: Workout catalog, logs, and exercise tracking.
+  - name: Challenges
+    description: Community challenges and progress reporting.
+  - name: Coach
+    description: Coach-only utilities like trainee purchases and profile assets.
+  - name: Certificates
+    description: Coach certificate gallery management.
+  - name: Transformations
+    description: Coach transformation gallery management.
+  - name: Payments
+    description: Tap webhook + redirect helpers.
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+    RegisterRequest:
+      type: object
+      required: [name, email, password, password_confirmation]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 6
+        password_confirmation:
+          type: string
+          format: password
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    GoogleSignInRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: Google ID token returned by Google Sign-In SDK
+    AppleSignInRequest:
+      type: object
+      required: [identity_token]
+      properties:
+        identity_token:
+          type: string
+          description: Apple identity token (JWT) returned by Sign in with Apple
+        name:
+          type: string
+          nullable: true
+          description: Optional preferred display name provided by the client on first login
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+    ProfileFlags:
+      type: object
+      properties:
+        has_coach_profile:
+          type: boolean
+        has_trainee_profile:
+          type: boolean
+    BadgeSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+    Target:
+      type: object
+      properties:
+        target_calories:
+          type: integer
+          nullable: true
+        target_steps:
+          type: integer
+          nullable: true
+        target_water_liters:
+          type: number
+          format: float
+          nullable: true
+    TraineeProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        height:
+          type: number
+        weight:
+          type: number
+        goal:
+          type: string
+          enum: [lose_weight, build_muscle, improve_cardio, maintain_fitness]
+        level:
+          type: string
+          enum: [sedentary, lightly_active, active, very_active]
+        body_type:
+          type: string
+          enum: [underweight, normal, overweight, obese]
+        profile_image_url:
+          type: string
+          format: uri
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+    TraineeProfileStoreRequest:
+      type: object
+      required: [height, weight, goal, level, body_type]
+      properties:
+        height:
+          type: number
+          minimum: 50
+          maximum: 300
+        weight:
+          type: number
+          minimum: 20
+          maximum: 500
+        goal:
+          type: string
+          enum: [lose_weight, build_muscle, improve_cardio, maintain_fitness]
+        level:
+          type: string
+          enum: [sedentary, lightly_active, active, very_active]
+        body_type:
+          type: string
+          enum: [underweight, normal, overweight, obese]
+        profile_image:
+          type: string
+          format: binary
+          description: Optional JPG/PNG upload
+    TraineeProfileUpdateRequest:
+      type: object
+      properties:
+        height:
+          type: number
+        weight:
+          type: number
+        goal:
+          type: string
+          enum: [lose_weight, build_muscle, improve_cardio, maintain_fitness]
+        level:
+          type: string
+          enum: [sedentary, lightly_active, active, very_active]
+        body_type:
+          type: string
+          enum: [underweight, normal, overweight, obese]
+        profile_image:
+          type: string
+          format: binary
+          description: Optional JPG/PNG upload
+    TraineeProfileShowResponse:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/TraineeProfile"
+        user:
+          $ref: "#/components/schemas/User"
+        total_exercises_finished:
+          type: integer
+        total_badges:
+          type: integer
+        badges:
+          type: array
+          items:
+            $ref: "#/components/schemas/BadgeSummary"
+        today_target:
+          $ref: "#/components/schemas/Target"
+    TraineeProfileMutationResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        profile:
+          $ref: "#/components/schemas/TraineeProfile"
+        today_target:
+          $ref: "#/components/schemas/Target"
+    CoachProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        profile_status:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        specialty:
+          type: string
+        years_of_experience:
+          type: number
+        nutrition_price:
+          type: number
+        workout_price:
+          type: number
+        full_package_price:
+          type: number
+        profile_image_url:
+          type: string
+          format: uri
+          nullable: true
+        user:
+          $ref: "#/components/schemas/User"
+    CoachProfileStoreRequest:
+      type: object
+      required: [specialty, years_of_experience, nutrition_price, workout_price, full_package_price]
+      properties:
+        description:
+          type: string
+          nullable: true
+        specialty:
+          type: string
+          description: "One of nutrition, workout, both"
+        years_of_experience:
+          type: number
+          minimum: 0
+        nutrition_price:
+          type: number
+          minimum: 0
+        workout_price:
+          type: number
+          minimum: 0
+        full_package_price:
+          type: number
+        profile_image:
+          type: string
+          format: binary
+          description: Optional JPG/PNG upload
+    CoachProfileUpdateRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          nullable: true
+        specialty:
+          type: string
+        years_of_experience:
+          type: number
+        nutrition_price:
+          type: number
+        workout_price:
+          type: number
+        full_package_price:
+          type: number
+        profile_image:
+          type: string
+          format: binary
+          description: Optional JPG/PNG upload
+    CoachProfileResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        profile:
+          $ref: "#/components/schemas/CoachProfile"
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+        data:
+          type: object
+          additionalProperties: true
+        read_at:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        time_ago:
+          type: string
+    NotificationsResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+    Meal:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        date:
+          type: string
+          format: date
+          nullable: true
+        type:
+          type: string
+          description: "Localized label such as فطور, غداء, etc."
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        calories:
+          type: number
+        protein:
+          type: number
+        fats:
+          type: number
+        carbs:
+          type: number
+    PaginationMeta:
+      type: object
+      properties:
+        current_page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        last_page:
+          type: integer
+    CoachDiscoverItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        specialty:
+          type: string
+        years_of_experience:
+          type: number
+        nutrition_price:
+          type: number
+        workout_price:
+          type: number
+        full_package_price:
+          type: number
+    CoachDiscoverResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoachDiscoverItem"
+        current_page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        last_page:
+          type: integer
+    PurchaseRequest:
+      type: object
+      required: [coach_profile_id, plan_type]
+      properties:
+        coach_profile_id:
+          type: integer
+        plan_type:
+          type: string
+          enum: [nutrition, workout, full_package]
+    PurchaseResponse:
+      type: object
+      properties:
+        checkout_url:
+          type: string
+          format: uri
+        charge_id:
+          type: string
+    TraineePlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        trainee_id:
+          type: integer
+        coach_profile_id:
+          type: integer
+        plan_id:
+          type: integer
+          nullable: true
+        plan_type:
+          type: string
+        items:
+          type: object
+          nullable: true
+          additionalProperties: true
+        tap_charge_id:
+          type: string
+        purchased_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [pending, completed]
+        trainee:
+          type: object
+          properties:
+            id:
+              type: integer
+            user:
+              $ref: "#/components/schemas/User"
+        coach_profile:
+          type: object
+          properties:
+            id:
+              type: integer
+            user:
+              $ref: "#/components/schemas/User"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Plan:
+      type: object
+      properties:
+        id:
+          type: integer
+        coach_profile_id:
+          type: integer
+        coach:
+          $ref: "#/components/schemas/CoachProfile"
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        workouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Workout"
+        meals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meal"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    PlanCreateRequest:
+      type: object
+      required: [trainee_plan_id, type, title]
+      properties:
+        trainee_plan_id:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        workout_ids:
+          type: array
+          items:
+            type: integer
+        meal_ids:
+          type: array
+          items:
+            type: integer
+    PlanUpdateRequest:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        workout_ids:
+          type: array
+          items:
+            type: integer
+        meal_ids:
+          type: array
+          items:
+            type: integer
+    PlanResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        plan:
+          $ref: "#/components/schemas/Plan"
+    WorkoutExercise:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        instructions:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        pivot:
+          type: object
+          properties:
+            sets:
+              type: integer
+            reps:
+              type: integer
+    Workout:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        is_started:
+          type: boolean
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutExercise"
+    WorkoutLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        trainee_id:
+          type: integer
+        workout_id:
+          type: integer
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    WorkoutLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        workout_name:
+          type: string
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        exercise_sets_logged:
+          type: integer
+          nullable: true
+    WorkoutLogCollection:
+      type: object
+      properties:
+        workouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutLogEntry"
+    WorkoutStartResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        workout_log:
+          $ref: "#/components/schemas/WorkoutLog"
+    ExerciseLogResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        set_number:
+          type: integer
+        remaining_sets:
+          type: integer
+    WorkoutProgress:
+      type: object
+      properties:
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        completion_percent:
+          type: number
+          format: float
+        can_restart:
+          type: boolean
+        exercises:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              required_sets:
+                type: integer
+              logged_sets:
+                type: integer
+              remaining_sets:
+                type: integer
+              completed:
+                type: boolean
+    ChallengeSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        badge:
+          type: string
+          nullable: true
+        duration_days:
+          type: integer
+        start_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [upcoming, ongoing, completed]
+        remaining:
+          type: object
+          properties:
+            days:
+              type: integer
+            hours:
+              type: integer
+            minutes:
+              type: integer
+    ChallengeDetails:
+      type: object
+      properties:
+        challenge:
+          $ref: "#/components/schemas/ChallengeSummary"
+        joined:
+          type: boolean
+        completed_days:
+          type: array
+          items:
+            type: integer
+    ChallengeJoinResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+    ChallengeDayRequest:
+      type: object
+      required: [day_number]
+      properties:
+        day_number:
+          type: integer
+          minimum: 1
+    ChallengeLeaderboardEntry:
+      type: object
+      properties:
+        trainee_id:
+          type: integer
+        name:
+          type: string
+        completed_days:
+          type: integer
+        badge_earned:
+          type: boolean
+    Certificate:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+    CertificatePayload:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image:
+          type: string
+          format: binary
+          nullable: true
+    Transformation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+    TransformationPayload:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image:
+          type: string
+          format: binary
+          nullable: true
+    TapWebhookPayload:
+      type: object
+      description: Raw payload forwarded from Tap's webhook. The charge object must include `id`, `amount`, `currency`, `status`, `reference`, `metadata`, and `transaction` timestamps.
+      additionalProperties: true
+    TapRedirectResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          nullable: true
+        raw:
+          type: object
+          additionalProperties: true
+paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a user and receive a bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and receive bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/google-signin:
+    post:
+      tags: [Auth]
+      summary: Exchange a Google ID token for a Sanctum bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoogleSignInRequest"
+      responses:
+        "200":
+          description: Auth payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid Google credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/apple-signin:
+    post:
+      tags: [Auth]
+      summary: Exchange an Apple identity token for a Sanctum bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppleSignInRequest"
+      responses:
+        "200":
+          description: Auth payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid Apple credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/check-profile:
+    get:
+      tags: [Auth]
+      summary: Check whether the authenticated user already has coach or trainee profiles
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile flags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileFlags"
+        "401":
+          description: Unauthenticated
+  /api/trainee/profile:
+    get:
+      tags: [Profiles]
+      summary: Show the authenticated trainee profile with aggregates
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraineeProfileShowResponse"
+        "404":
+          description: Profile not found
+    post:
+      tags: [Profiles]
+      summary: Create a trainee profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TraineeProfileStoreRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/TraineeProfileStoreRequest"
+      responses:
+        "201":
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraineeProfileMutationResponse"
+        "422":
+          description: Validation error
+    put:
+      tags: [Profiles]
+      summary: Update trainee profile fields
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TraineeProfileUpdateRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/TraineeProfileUpdateRequest"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraineeProfileMutationResponse"
+        "404":
+          description: Profile not found
+    patch:
+      $ref: "#/paths/~1api~1trainee~1profile/put"
+    delete:
+      tags: [Profiles]
+      summary: Delete the trainee profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Profile not found
+  /api/trainee/notifications:
+    get:
+      tags: [Notifications]
+      summary: List latest trainee notifications (unread by default)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Notifications payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsResponse"
+  /api/coach/profile:
+    get:
+      tags: [Profiles]
+      summary: Show authenticated coach profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile:
+                    $ref: "#/components/schemas/CoachProfile"
+        "404":
+          description: No coach profile found
+    post:
+      tags: [Profiles]
+      summary: Create a coach profile for the authenticated user
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachProfileStoreRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CoachProfileStoreRequest"
+      responses:
+        "200":
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachProfileResponse"
+        "422":
+          description: Validation error
+    put:
+      tags: [Profiles]
+      summary: Update coach profile fields
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachProfileUpdateRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CoachProfileUpdateRequest"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachProfileResponse"
+        "404":
+          description: Profile not found
+    patch:
+      $ref: "#/paths/~1api~1coach~1profile/put"
+    delete:
+      tags: [Profiles]
+      summary: Delete the coach profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Profile not found
+  /api/coach/notifications:
+    get:
+      tags: [Notifications]
+      summary: List latest coach notifications (unread by default)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Notifications payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsResponse"
+        "403":
+          description: Not a coach
+  /api/coach/trainee-plans/pending:
+    get:
+      tags: [Coach]
+      summary: List pending trainee purchases assigned to the coach
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Pending purchases
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TraineePlan"
+        "403":
+          description: User is not a coach
+  /api/coach/trainee-plans/completed:
+    get:
+      tags: [Coach]
+      summary: List completed trainee purchases assigned to the coach
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Completed purchases
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completed:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TraineePlan"
+        "403":
+          description: User is not a coach
+  /api/coach/certificates:
+    get:
+      tags: [Certificates]
+      summary: List all certificates attached to the coach profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Certificate collection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  certificates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Certificate"
+    post:
+      tags: [Certificates]
+      summary: Upload a new certificate (optional image)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CertificatePayload"
+      responses:
+        "201":
+          description: Certificate created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  certificate:
+                    $ref: "#/components/schemas/Certificate"
+  /api/coach/certificates/{certificate}:
+    parameters:
+      - in: path
+        name: certificate
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Certificates]
+      summary: Show certificate details
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Certificate payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  certificate:
+                    $ref: "#/components/schemas/Certificate"
+        "403":
+          description: Unauthorized
+    put:
+      tags: [Certificates]
+      summary: Update certificate metadata or replace image
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CertificatePayload"
+      responses:
+        "200":
+          description: Certificate updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  certificate:
+                    $ref: "#/components/schemas/Certificate"
+        "403":
+          description: Unauthorized
+    patch:
+      $ref: "#/paths/~1api~1coach~1certificates~1{certificate}~1put"
+    delete:
+      tags: [Certificates]
+      summary: Delete a certificate
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Unauthorized
+  /api/coach/transformations:
+    get:
+      tags: [Transformations]
+      summary: List all transformations for the coach profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Transformation list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transformations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transformation"
+    post:
+      tags: [Transformations]
+      summary: Create a transformation entry
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/TransformationPayload"
+      responses:
+        "201":
+          description: Transformation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  transformation:
+                    $ref: "#/components/schemas/Transformation"
+  /api/coach/transformations/{transformation}:
+    parameters:
+      - in: path
+        name: transformation
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Transformations]
+      summary: Show a single transformation asset
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transformation:
+                    $ref: "#/components/schemas/Transformation"
+        "403":
+          description: Unauthorized
+    put:
+      tags: [Transformations]
+      summary: Update transformation metadata or replace its image
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/TransformationPayload"
+      responses:
+        "200":
+          description: Updated transformation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  transformation:
+                    $ref: "#/components/schemas/Transformation"
+        "403":
+          description: Unauthorized
+    patch:
+      $ref: "#/paths/~1api~1coach~1transformations~1{transformation}~1put"
+    delete:
+      tags: [Transformations]
+      summary: Delete a transformation entry
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Unauthorized
+  /api/purchases:
+    post:
+      tags: [Purchases]
+      summary: Create a Tap charge for the authenticated trainee
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseRequest"
+      responses:
+        "200":
+          description: Checkout link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseResponse"
+        "403":
+          description: User is not a trainee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation/pricing error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Tap charge creation failed
+  /api/discover/coaches:
+    get:
+      tags: [Discover]
+      summary: Discover coaches with filterable pricing/experience ranges
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: specialty
+          schema:
+            type: string
+        - in: query
+          name: min_experience
+          schema:
+            type: integer
+        - in: query
+          name: max_experience
+          schema:
+            type: integer
+        - in: query
+          name: min_nutrition_price
+          schema:
+            type: number
+        - in: query
+          name: max_nutrition_price
+          schema:
+            type: number
+        - in: query
+          name: min_workout_price
+          schema:
+            type: number
+        - in: query
+          name: max_workout_price
+          schema:
+            type: number
+        - in: query
+          name: min_full_package_price
+          schema:
+            type: number
+        - in: query
+          name: max_full_package_price
+          schema:
+            type: number
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Paginated coach profiles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachDiscoverResponse"
+  /api/meals:
+    get:
+      tags: [Meals]
+      summary: Paginated meal catalog
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Meal collection (Laravel pagination envelope)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Meal"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+                  links:
+                    type: object
+                    additionalProperties: true
+  /api/meals/{meal}:
+    parameters:
+      - in: path
+        name: meal
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Meals]
+      summary: Show a single meal with macros
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Meal resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Meal"
+        "404":
+          description: Meal not found
+  /api/plans:
+    get:
+      tags: [Plans]
+      summary: List plans with their workouts and meals
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Plan collection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Plan"
+    post:
+      tags: [Plans]
+      summary: Create a plan from a pending trainee purchase
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanCreateRequest"
+      responses:
+        "201":
+          description: Plan created and trainee purchase marked completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "403":
+          description: Not authorized to create plan for this purchase
+        "422":
+          description: Validation error
+  /api/plans/{plan}:
+    parameters:
+      - in: path
+        name: plan
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Plans]
+      summary: Show plan details
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Plan resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    $ref: "#/components/schemas/Plan"
+        "404":
+          description: Not found
+    put:
+      tags: [Plans]
+      summary: Update plan metadata or attached workouts/meals
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanUpdateRequest"
+      responses:
+        "200":
+          description: Plan updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "403":
+          description: Unauthorized
+    patch:
+      $ref: "#/paths/~1api~1plans~1{plan}~1put"
+    delete:
+      tags: [Plans]
+      summary: Delete a plan (coach only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Plan deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Unauthorized
+  /api/workouts:
+    get:
+      tags: [Workouts]
+      summary: List workout logs for the authenticated trainee
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Workout logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutLogCollection"
+  /api/workouts/completed:
+    get:
+      tags: [Workouts]
+      summary: List completed workout logs for the trainee
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Completed logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutLogCollection"
+  /api/workouts/{workout}:
+    parameters:
+      - in: path
+        name: workout
+        description: Workout slug
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Workouts]
+      summary: Show workout details including exercises
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Workout resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Workout"
+        "404":
+          description: Workout not found
+  /api/workouts/{workout}/completed:
+    parameters:
+      - in: path
+        name: workout
+        description: Workout slug
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Workouts]
+      summary: List completed logs for a specific workout
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Completed logs for workout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutLogCollection"
+  /api/workouts/{workout}/progress:
+    parameters:
+      - in: path
+        name: workout
+        description: Workout slug
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Workouts]
+      summary: Detailed workout progress for the most recent session
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Progress payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutProgress"
+        "404":
+          description: No active or prior logs found
+  /api/workouts/{workout}/start:
+    parameters:
+      - in: path
+        name: workout
+        description: Workout slug
+        required: true
+        schema:
+          type: string
+    post:
+      tags: [Workouts]
+      summary: Start a workout session
+      security:
+        - BearerAuth: []
+      responses:
+        "201":
+          description: Workout session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutStartResponse"
+        "422":
+          description: Workout already in progress or invalid state
+  /api/workouts/{workout}/exercises/{exercise}/log:
+    parameters:
+      - in: path
+        name: workout
+        description: Workout slug
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: exercise
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Workouts]
+      summary: Log a set for an exercise inside a workout session
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reps]
+              properties:
+                reps:
+                  type: integer
+                  minimum: 1
+                weight:
+                  type: number
+                  minimum: 0
+                  nullable: true
+      responses:
+        "201":
+          description: Set logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExerciseLogResponse"
+        "404":
+          description: Workout session not found
+        "422":
+          description: Exercise not part of workout or all sets already logged
+  /api/challenges:
+    get:
+      tags: [Challenges]
+      summary: List all challenges with summary metadata
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Challenge collection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  challenges:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ChallengeSummary"
+  /api/challenges/{challenge}:
+    parameters:
+      - in: path
+        name: challenge
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Challenges]
+      summary: Show challenge details + current trainee progress
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Challenge details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeDetails"
+        "404":
+          description: Challenge not found
+  /api/challenges/{challenge}/join:
+    parameters:
+      - in: path
+        name: challenge
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Challenges]
+      summary: Join a challenge as the authenticated trainee
+      security:
+        - BearerAuth: []
+      responses:
+        "201":
+          description: Join confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeJoinResponse"
+        "403":
+          description: Not a trainee or challenge closed
+        "422":
+          description: Already joined
+  /api/challenges/{challenge}/complete-day:
+    parameters:
+      - in: path
+        name: challenge
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Challenges]
+      summary: Mark a challenge day as completed
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChallengeDayRequest"
+      responses:
+        "200":
+          description: Day marked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Not joined / unauthorized
+        "422":
+          description: Invalid day number or already marked
+  /api/challenges/{challenge}/leaderboard:
+    parameters:
+      - in: path
+        name: challenge
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Challenges]
+      summary: Leaderboard ordered by completed days
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Leaderboard payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leaderboard:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ChallengeLeaderboardEntry"
+  /api/payment/tap/webhook:
+    post:
+      tags: [Payments]
+      summary: Tap webhook that finalizes purchases (verifies signature)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TapWebhookPayload"
+      responses:
+        "200":
+          description: Webhook accepted / processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid signature or payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/payment/tap/redirect:
+    get:
+      tags: [Payments]
+      summary: Tap redirect landing page (polls Tap for charge status)
+      parameters:
+        - in: query
+          name: tap_id
+          schema:
+            type: string
+          required: false
+          description: Charge ID returned by Tap
+        - in: query
+          name: id
+          schema:
+            type: string
+          description: Alternate param used by Tap when tap_id is missing
+      responses:
+        "200":
+          description: Charge status fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TapRedirectResponse"
+        "400":
+          description: tap_id missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Tap API erroropenapi: 3.0.3
+info:
+  title: SuniorFit API
+  version: 1.0.0
+  description: |
+    REST API for SuniorFit backend. Covers authentication, purchases, plan creation,
+    coach/trainee notifications, and related resources described in routes/api.php.
+servers:
+  - url: https://api.suniorfit.local
+    description: Local development
+  - url: https://api.suniorfit.com
+    description: Production
+security:
+  - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+        data:
+          type: object
+          additionalProperties: true
+        read_at:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        time_ago:
+          type: string
+    NotificationsResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+    PurchaseRequest:
+      type: object
+      required: [coach_profile_id, type]
+      properties:
+        coach_profile_id:
+          type: integer
+        type:
+          type: string
+          description: "Package type (nutrition, workout, full_package, etc.)"
+        items:
+          type: object
+          additionalProperties: true
+    PurchaseResponse:
+      type: object
+      properties:
+        checkout_url:
+          type: string
+          format: uri
+        charge_id:
+          type: string
+    TraineePlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        trainee_id:
+          type: integer
+        plan_id:
+          type: integer
+          nullable: true
+        coach_profile_id:
+          type: integer
+        plan_type:
+          type: string
+        items:
+          type: object
+          nullable: true
+        tap_charge_id:
+          type: string
+        purchased_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [pending, completed]
+        trainee:
+          type: object
+          properties:
+            id:
+              type: integer
+            user:
+              $ref: "#/components/schemas/User"
+        coach_profile:
+          type: object
+          properties:
+            id:
+              type: integer
+            user:
+              $ref: "#/components/schemas/User"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Plan:
+      type: object
+      properties:
+        id:
+          type: integer
+        coach_profile_id:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        workouts:
+          type: array
+          items:
+            type: object
+        meals:
+          type: array
+          items:
+            type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    PlanCreateRequest:
+      type: object
+      required: [trainee_plan_id, type, title]
+      properties:
+        trainee_plan_id:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        workout_ids:
+          type: array
+          items:
+            type: integer
+        meal_ids:
+          type: array
+          items:
+            type: integer
+    PlanResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        plan:
+          $ref: "#/components/schemas/Plan"
+paths:
+  /api/auth/login:
+    post:
+      summary: Login and receive bearer token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+  /api/auth/check:
+    get:
+      summary: Check if authenticated user has coach/trainee profiles
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile flags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  has_coach_profile:
+                    type: boolean
+                  has_trainee_profile:
+                    type: boolean
+        "401":
+          description: Unauthenticated
+  /api/trainee/notifications:
+    get:
+      summary: List trainee notifications (unread by default)
+      tags: [Trainee]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Notifications payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsResponse"
+        "401":
+          description: Unauthenticated
+  /api/coach/notifications:
+    get:
+      summary: List coach notifications (unread by default)
+      tags: [Coach]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Notifications payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsResponse"
+        "401":
+          description: Unauthenticated
+        "403":
+          description: User is not a coach
+  /api/coach/trainee-plans/pending:
+    get:
+      summary: List pending trainee purchases for authenticated coach
+      tags: [Coach]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Pending trainee plans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TraineePlan"
+        "403":
+          description: Not a coach
+  /api/coach/trainee-plans/completed:
+    get:
+      summary: List completed trainee purchases for authenticated coach
+      tags: [Coach]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Completed trainee plans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completed:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TraineePlan"
+        "403":
+          description: Not a coach
+  /api/plans:
+    get:
+      summary: List plans with related workouts and meals
+      tags: [Plans]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Plan collection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Plan"
+    post:
+      summary: Create a plan from a pending trainee purchase
+      tags: [Plans]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanCreateRequest"
+      responses:
+        "201":
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "403":
+          description: Not authorized / not coach owner
+        "422":
+          description: Validation error
+  /api/plans/{plan}:
+    get:
+      summary: Show plan details
+      tags: [Plans]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: plan
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plan resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    $ref: "#/components/schemas/Plan"
+        "404":
+          description: Not found
+    patch:
+      summary: Update plan metadata or attached workout/meal IDs
+      tags: [Plans]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: plan
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                title:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                workout_ids:
+                  type: array
+                  items:
+                    type: integer
+                meal_ids:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        "200":
+          description: Updated plan
+        "403":
+          description: Unauthorized
+    delete:
+      summary: Delete plan
+      tags: [Plans]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: plan
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted confirmation
+  /api/purchases:
+    post:
+      summary: Create a Tap charge for authenticated trainee
+      tags: [Purchases]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseRequest"
+      responses:
+        "200":
+          description: Checkout link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseResponse"
+        "403":
+          description: Not a trainee
+        "422":
+          description: Validation / pricing error
+        "500":
+          description: Tap charge creation failed
+  /api/payment/tap/webhook:
+    post:
+      summary: Tap webhook to finalize purchases (creates pending TraineePlan)
+      tags: [Payments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Webhook accepted
+        "400":
+          description: Invalid signature/payload
+  /api/payment/tap/redirect:
+    get:
+      summary: Tap redirect landing page
+      tags: [Payments]
+      responses:
+        "200":
+          description: Redirect response
+        "302":
+          description: Optional redirect to frontend
+  /api/discover/coaches:
+    get:
+      summary: Discover coaches with filters
+      tags: [Discover]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: specialty
+          schema:
+            type: string
+        - in: query
+          name: min_experience
+          schema:
+            type: integer
+        - in: query
+          name: max_experience
+          schema:
+            type: integer
+        - in: query
+          name: min_nutrition_price
+          schema:
+            type: number
+        - in: query
+          name: max_nutrition_price
+          schema:
+            type: number
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Paginated coach profiles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        email:
+                          type: string
+                        specialty:
+                          type: string
+                        years_of_experience:
+                          type: integer
+                        nutrition_price:
+                          type: string
+                        workout_price:
+                          type: string
+                        full_package_price:
+                          type: string
+                  current_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
