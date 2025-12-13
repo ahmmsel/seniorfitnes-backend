@@ -18,7 +18,9 @@ return new class extends Migration
             $table->unsignedInteger('day_number');
             $table->timestamps();
 
-            $table->unique(['challenge_id', 'trainee_id', 'day_number']);
+            // MySQL limits index identifier length to 64 chars. Provide a short name to avoid
+            // "Identifier name too long" errors on some installations.
+            $table->unique(['challenge_id', 'trainee_id', 'day_number'], 'cdc_challenge_trainee_day_uq');
         });
     }
 
