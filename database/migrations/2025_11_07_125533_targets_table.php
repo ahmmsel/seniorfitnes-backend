@@ -20,8 +20,7 @@ return new class extends Migration
             $table->decimal('target_water_liters', 5, 2);
             // Date for the target (one per day per trainee)
             // Use a NOT NULL column with a sensible default (current date).
-            $table->date('target_date')->default(DB::raw('CURRENT_DATE'));
-            // Unique per trainee per date
+            $table->date('target_date')->default(now());            // Unique per trainee per date
             $table->unique(['trainee_profile_id', 'target_date'], 'targets_trainee_date_uq');
             $table->timestamps();
         });
