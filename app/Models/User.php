@@ -56,10 +56,10 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
-    // public function canAccessPanel(Panel $panel): bool
-    // {
-    //     return $this->role === 'admin';
-    // }
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->role === 'admin';
+    }
 
     public function coachProfile(): HasOne
     {
