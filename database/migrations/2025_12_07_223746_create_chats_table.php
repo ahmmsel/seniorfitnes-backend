@@ -34,4 +34,6 @@ return new class extends Migration
         Schema::dropIfExists('chats');
         Schema::enableForeignKeyConstraints();
 
-        Schema::create('chats', function (Blueprint $table) {
+        Schema::create('chats', function (Blueprint $table) {});
+    }
+};
