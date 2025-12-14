@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Exercises\Schemas;
 
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
@@ -23,7 +24,7 @@ class ExerciseForm
                     ->label('اسم التمرين')
                     ->columnSpanFull()
                     ->required(),
-                RichEditor::make('instructions')
+                Textarea::make('instructions')
                     ->label('التعليمات')
                     ->columnSpanFull()
             ]);
