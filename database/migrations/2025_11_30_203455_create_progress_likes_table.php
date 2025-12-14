@@ -17,8 +17,8 @@ return new class extends Migration
             $table->foreignId('trainee_id')->constrained('trainee_profiles')->onDelete('cascade');
             $table->timestamp('created_at');
 
-            // Prevent duplicate likes
-            $table->unique(['post_id', 'trainee_id']);
+            // Prevent duplicate likes (short explicit name to avoid long index identifiers)
+            $table->unique(['post_id', 'trainee_id'], 'pl_post_trainee_uq');
         });
     }
 
