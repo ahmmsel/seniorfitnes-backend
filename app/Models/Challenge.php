@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Challenge extends Model implements HasMedia
 {
@@ -21,6 +22,15 @@ class Challenge extends Model implements HasMedia
 
     protected $appends = ['image_url'];
 
+    public function registerMediaConversions(Media $media = null): void
+    {
+        $this
+            ->addMediaConversion('webp')
+            ->format('webp')
+            ->quality(75)
+            ->nonQueued();
+    }
+
     public function badge(): BelongsTo
     {
         return $this->belongsTo(Badge::class);
@@ -28,7 +38,7 @@ class Challenge extends Model implements HasMedia
 
     public function getImageUrlAttribute()
     {
-        return $this->getFirstMediaUrl('challenges');
+        return $this->getFirstMediaUrl('challenges', 'webp') ?: $this->getFirstMediaUrl('challenges');
     }
 
     public function isJoinable(): bool

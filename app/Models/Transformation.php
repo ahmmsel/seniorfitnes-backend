@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Transformation extends Model implements HasMedia
 {
@@ -19,6 +20,15 @@ class Transformation extends Model implements HasMedia
 
     protected $appends = ['image_url'];
 
+    public function registerMediaConversions(Media $media = null): void
+    {
+        $this
+            ->addMediaConversion('webp')
+            ->format('webp')
+            ->quality(75)
+            ->nonQueued();
+    }
+
     public function coachProfile(): BelongsTo
     {
         return $this->belongsTo(CoachProfile::class);
@@ -26,6 +36,6 @@ class Transformation extends Model implements HasMedia
 
     public function getImageUrlAttribute()
     {
-        return $this->getFirstMediaUrl('transformations');
+        return $this->getFirstMediaUrl('transformations', 'webp') ?: $this->getFirstMediaUrl('transformations');
     }
 }

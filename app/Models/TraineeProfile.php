@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class TraineeProfile extends Model implements HasMedia
 {
@@ -24,6 +25,15 @@ class TraineeProfile extends Model implements HasMedia
     ];
 
     protected $appends = ['profile_image_url'];
+
+    public function registerMediaConversions(Media $media = null): void
+    {
+        $this
+            ->addMediaConversion('webp')
+            ->format('webp')
+            ->quality(75)
+            ->nonQueued();
+    }
 
     public function user(): BelongsTo
     {
@@ -59,7 +69,7 @@ class TraineeProfile extends Model implements HasMedia
 
     public function getProfileImageUrlAttribute(): ?string
     {
-        $url = $this->getFirstMediaUrl('profile_picture');
+        $url = $this->getFirstMediaUrl('profile_picture', 'webp') ?: $this->getFirstMediaUrl('profile_picture');
         return $url ?: null;
     }
 }
