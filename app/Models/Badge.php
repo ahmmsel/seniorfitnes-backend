@@ -16,7 +16,7 @@ class Badge extends Model implements HasMedia
 
     protected $appends = ['image_url'];
 
-    public function registerMediaConversions(Media $media = null): void
+    public function registerMediaConversions(?Media $media = null): void
     {
         $this
             ->addMediaConversion('webp')

@@ -24,9 +24,9 @@ class TraineeProfile extends Model implements HasMedia
         'body_type'
     ];
 
-    protected $appends = ['profile_image_url'];
+    protected $appends = ['image_url'];
 
-    public function registerMediaConversions(Media $media = null): void
+    public function registerMediaConversions(?Media $media = null): void
     {
         $this
             ->addMediaConversion('webp')
