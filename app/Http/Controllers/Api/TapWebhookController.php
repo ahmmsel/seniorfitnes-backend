@@ -15,19 +15,33 @@ class TapWebhookController extends Controller
 
     public function webhook(TapWebhookRequest $request)
     {
-        // Log the webhook
-        Log::info('Tap Webhook Received', $request->all());
+        try {
+            // Log the webhook
+            Log::info('Tap Webhook Received', $request->all());
 
-        // Process webhook via service
-        $result = $this->tapPaymentService->processWebhook($request->validated());
+            // Process webhook via service
+            $result = $this->tapPaymentService->processWebhook($request->validated());
 
-        // Handle error responses
-        if (isset($result['error']) && $result['error']) {
-            $statusCode = $result['message'] === 'Trainee not found' ||
-                $result['message'] === 'Coach profile not found' ? 404 : 400;
-            return response()->json(['message' => $result['message']], $statusCode);
+            // Handle error responses
+            if (isset($result['error']) && $result['error']) {
+                $statusCode = $result['message'] === 'Trainee not found' ||
+                    $result['message'] === 'Coach profile not found' ? 404 : 400;
+                return response()->json(['message' => $result['message']], $statusCode);
+            }
+
+            return response()->json(['message' => $result['message']], 200);
+        } catch (\Throwable $e) {
+            Log::error('Tap Webhook Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => 'Webhook processing failed',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        return response()->json(['message' => $result['message']], 200);
     }
 }
