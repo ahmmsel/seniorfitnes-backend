@@ -85,76 +85,121 @@ class TapPaymentService
      */
     public function processWebhook(array $webhookData): array
     {
-        $tapId = $webhookData['tap_id'];
-        $status = $webhookData['tap_status'];
-        $body = $webhookData['tap_object'];
-        $metadata = $webhookData['tap_metadata'];
+        \Log::info('Processing Tap Webhook', ['data' => $webhookData]);
 
-        // Update payment record
-        $payment = \App\Models\Payment::where('charge_id', $tapId)->first();
-        if ($payment) {
-            $payment->status = $status;
-            $payment->raw = $body;
-            $payment->save();
+        $tapId = $webhookData['tap_id'] ?? null;
+        $status = $webhookData['tap_status'] ?? null;
+        $body = $webhookData['tap_object'] ?? [];
+        $metadata = $webhookData['tap_metadata'] ?? [];
+
+        if (!$tapId || !$status) {
+            \Log::error('Missing tap_id or tap_status', $webhookData);
+            return ['message' => 'Invalid webhook data', 'error' => true];
         }
+
+        // Update or create payment record
+        $payment = \App\Models\Payment::updateOrCreate(
+            ['charge_id' => $tapId],
+            [
+                'status' => $status,
+                'raw' => $body,
+                'amount' => $webhookData['tap_amount'] ?? null,
+                'currency' => $webhookData['tap_currency'] ?? null,
+            ]
+        );
+
+        \Log::info('Payment record updated', ['payment_id' => $payment->id]);
 
         // Ignore non-successful payments
         if (!in_array(strtoupper($status), ['CAPTURED', 'SUCCESS'])) {
+            \Log::info('Payment not successful, ignoring', ['status' => $status]);
             return ['message' => 'Ignored (not successful)', 'processed' => false];
         }
 
         // Extract metadata
-        $traineeId = $metadata['trainee_id'];
-        $coachProfileId = $metadata['coach_profile_id'];
+        $traineeId = $metadata['trainee_id'] ?? null;
+        $coachProfileId = $metadata['coach_profile_id'] ?? null;
         $planType = $metadata['plan_type'] ?? null;
         $items = $metadata['items'] ?? null;
 
-        // Get models
-        $trainee = \App\Models\TraineeProfile::find($traineeId);
-        $coach = \App\Models\CoachProfile::find($coachProfileId);
+        if (!$traineeId || !$coachProfileId || !$planType) {
+            \Log::error('Missing required metadata', ['metadata' => $metadata]);
+            return ['message' => 'Missing required metadata', 'error' => true];
+        }
+
+        // Get models with relationships
+        $trainee = \App\Models\TraineeProfile::with('user')->find($traineeId);
+        $coach = \App\Models\CoachProfile::with('user')->find($coachProfileId);
 
         if (!$trainee) {
+            \Log::error('Trainee not found', ['trainee_id' => $traineeId]);
             return ['message' => 'Trainee not found', 'error' => true];
         }
         if (!$coach) {
+            \Log::error('Coach not found', ['coach_profile_id' => $coachProfileId]);
             return ['message' => 'Coach profile not found', 'error' => true];
         }
+
+        \Log::info('Found trainee and coach', [
+            'trainee_id' => $trainee->id,
+            'trainee_user_id' => $trainee->user_id,
+            'coach_id' => $coach->id,
+            'coach_user_id' => $coach->user_id,
+        ]);
 
         // Prevent duplicates
         $exists = \App\Models\TraineePlan::where('trainee_id', $traineeId)
             ->where('coach_profile_id', $coachProfileId)
-            ->where('plan_type', $planType)
             ->where('tap_charge_id', $tapId)
             ->exists();
 
-        if (!$exists) {
-            $tp = \App\Models\TraineePlan::create([
-                'trainee_id' => $traineeId,
-                'plan_id' => null,
-                'coach_profile_id' => $coachProfileId,
-                'plan_type' => $planType,
-                'items' => $items,
-                'tap_charge_id' => $tapId,
-                'purchased_at' => now(),
-                'status' => 'pending',
-            ]);
+        if ($exists) {
+            \Log::info('TraineePlan already exists', ['tap_charge_id' => $tapId]);
+            return ['message' => 'Already processed', 'processed' => false];
+        }
 
-            // Notify coach
+        // Create TraineePlan
+        $tp = \App\Models\TraineePlan::create([
+            'trainee_id' => $traineeId,
+            'plan_id' => null,
+            'coach_profile_id' => $coachProfileId,
+            'plan_type' => $planType,
+            'items' => $items,
+            'tap_charge_id' => $tapId,
+            'purchased_at' => now(),
+            'status' => 'pending',
+        ]);
+
+        \Log::info('TraineePlan created', ['trainee_plan_id' => $tp->id]);
+
+        // Notify coach
+        try {
             if ($coach->user) {
                 $coach->user->notify(new \App\Notifications\TraineePurchaseNotification([
                     'trainee_id' => $traineeId,
-                    'trainee_name' => $trainee->user->name ?? null,
+                    'trainee_name' => $trainee->user->name ?? 'Trainee',
                     'trainee_plan_id' => $tp->id,
                     'plan_type' => $planType,
                     'items' => $items,
                     'tap_charge_id' => $tapId,
                 ]));
+                \Log::info('Coach notified', ['coach_user_id' => $coach->user->id]);
+            } else {
+                \Log::warning('Coach has no user account', ['coach_id' => $coach->id]);
             }
-
-            return ['message' => 'Webhook processed', 'processed' => true, 'trainee_plan_id' => $tp->id];
+        } catch (\Throwable $e) {
+            \Log::error('Failed to send notification', [
+                'error' => $e->getMessage(),
+                'coach_id' => $coach->id,
+            ]);
+            // Don't fail the webhook if notification fails
         }
 
-        return ['message' => 'Already processed', 'processed' => false];
+        return [
+            'message' => 'Webhook processed successfully',
+            'processed' => true,
+            'trainee_plan_id' => $tp->id
+        ];
     }
 
     /**

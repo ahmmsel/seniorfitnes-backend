@@ -17,10 +17,17 @@ class TapWebhookController extends Controller
     {
         try {
             // Log the webhook
-            Log::info('Tap Webhook Received', $request->all());
+            Log::info('Tap Webhook Received', [
+                'tap_id' => $request->input('tap_id'),
+                'status' => $request->input('tap_status'),
+                'amount' => $request->input('tap_amount'),
+            ]);
 
             // Process webhook via service
             $result = $this->tapPaymentService->processWebhook($request->validated());
+
+            // Log the result
+            Log::info('Tap Webhook Result', $result);
 
             // Handle error responses
             if (isset($result['error']) && $result['error']) {
@@ -29,7 +36,7 @@ class TapWebhookController extends Controller
                 return response()->json(['message' => $result['message']], $statusCode);
             }
 
-            return response()->json(['message' => $result['message']], 200);
+            return response()->json($result, 200);
         } catch (\Throwable $e) {
             Log::error('Tap Webhook Error', [
                 'message' => $e->getMessage(),

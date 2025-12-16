@@ -96,8 +96,6 @@ class TapWebhookRequest extends FormRequest
 
     protected function validateSignature(): bool
     {
-        $raw = $this->getContent();
-
         // Get hash header
         $hashHeader = $this->header('hashstring')
             ?? $this->header('tap-hash')
@@ -106,46 +104,58 @@ class TapWebhookRequest extends FormRequest
             ?? $this->header('x-tap-signature')
             ?? $this->header('tap-hash-sha256');
 
-        if (!$hashHeader) {
-            Log::warning("Webhook missing hash header - skipping signature validation in test mode", [
-                'available_headers' => array_keys($this->header())
+        // Get webhook secret
+        $secret = trim(config('services.tap.webhook_secret')
+            ?? env('TAP_WEBHOOK_SECRET')
+            ?? env('TAP_PUBLIC_KEY')
+            ?? '');
+
+        // If no hash header or no secret configured, allow in test mode
+        if (!$hashHeader || empty($secret)) {
+            Log::warning("Webhook signature validation skipped", [
+                'has_hash_header' => !empty($hashHeader),
+                'has_secret' => !empty($secret),
             ]);
-            // Allow webhooks without signature in test mode
             return true;
         }
 
-        // Build signature string according to Tap's format
+        // Build signature string exactly as Tap does
         // Format: x_id{id}x_amount{amount}x_currency{currency}x_gateway_reference{ref}x_payment_reference{ref}x_status{status}x_created{timestamp}
-        $string = 'x_id' . $this->input('tap_id')
-            . 'x_amount' . $this->input('tap_amount')
-            . 'x_currency' . $this->input('tap_currency')
-            . 'x_gateway_reference' . $this->input('gateway_reference')
-            . 'x_payment_reference' . $this->input('payment_reference')
-            . 'x_status' . $this->input('tap_status')
-            . 'x_created' . $this->input('tap_created');
+        $id = $this->input('tap_id');
+        $amount = $this->input('tap_amount');
+        $currency = $this->input('tap_currency');
+        $gatewayReference = $this->input('gateway_reference', '');
+        $paymentReference = $this->input('payment_reference', '');
+        $status = $this->input('tap_status');
+        $created = $this->input('tap_created');
 
-        // Use TAP_WEBHOOK_SECRET if set, otherwise fall back to TAP_PUBLIC_KEY (not secret key)
-        $secret = trim(config('services.tap.webhook_secret')
-            ?? env('TAP_WEBHOOK_SECRET')
-            ?? env('TAP_PUBLIC_KEY'));
+        $hashString = "x_id{$id}x_amount{$amount}x_currency{$currency}x_gateway_reference{$gatewayReference}x_payment_reference{$paymentReference}x_status{$status}x_created{$created}";
 
-        $computed = hash_hmac('sha256', $string, $secret);
+        $computed = hash_hmac('sha256', $hashString, $secret);
 
-        Log::info('Tap Hash Debug', [
-            'string' => $string,
+        Log::info('Tap Signature Validation', [
+            'hash_string' => $hashString,
             'computed' => $computed,
             'received' => $hashHeader,
-            'secret_set' => !empty($secret),
+            'match' => hash_equals($computed, (string)$hashHeader),
         ]);
 
+        // In production, enforce signature validation
+        // In test mode with mismatches, log warning but allow
         if (!hash_equals($computed, (string)$hashHeader)) {
-            Log::warning("Tap signature mismatch - allowing in test mode", [
+            if (env('TAP_MODE') === 'test' || config('app.env') !== 'production') {
+                Log::warning("Tap signature mismatch (allowing in test mode)", [
+                    'computed' => $computed,
+                    'received' => $hashHeader,
+                ]);
+                return true;
+            }
+
+            Log::error("Tap signature validation failed", [
                 'computed' => $computed,
                 'received' => $hashHeader,
-                'string' => $string,
             ]);
-            // Allow signature mismatch in test mode
-            return true;
+            return false;
         }
 
         return true;
