@@ -47,8 +47,15 @@ class TapWebhookRequest extends FormRequest
             'payment_reference' => $ref['payment'] ?? $ref['order'] ?? '',
         ]);
 
-        // Extract metadata
-        $this->merge(['tap_metadata' => $obj['metadata'] ?? []]);
+        // Extract metadata and convert string IDs to integers
+        $metadata = $obj['metadata'] ?? [];
+        if (isset($metadata['trainee_id'])) {
+            $metadata['trainee_id'] = (int) $metadata['trainee_id'];
+        }
+        if (isset($metadata['coach_profile_id'])) {
+            $metadata['coach_profile_id'] = (int) $metadata['coach_profile_id'];
+        }
+        $this->merge(['tap_metadata' => $metadata]);
     }
 
     public function rules(): array
