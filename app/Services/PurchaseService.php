@@ -54,7 +54,7 @@ class PurchaseService
 
         $redirect = route('tap.redirect');
 
-        $callback = config('app.url') . '/api/payment/tap/webhook';
+        $callback = route('tap.webhook');
 
         Log::debug("Log Webhook Route", ['route' => $callback]);
 
