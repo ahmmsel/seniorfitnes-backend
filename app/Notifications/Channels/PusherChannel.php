@@ -56,13 +56,6 @@ class PusherChannel
 
         // Get payload from notification
         $payload = [];
-        if (method_exists($notification, 'toArray')) {
-            /** @phpstan-ignore-next-line */
-            $payload = $notification->toArray($notifiable);
-        } elseif (method_exists($notification, 'toDatabase')) {
-            /** @phpstan-ignore-next-line */
-            $payload = $notification->toDatabase($notifiable);
-        }
 
         try {
             if ($pusher = $this->makePusher()) {
