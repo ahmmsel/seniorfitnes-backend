@@ -2,7 +2,7 @@
 
 namespace App\Notifications\Channels;
 
-use App\Notifications\NewPrivateMessage;
+use Illuminate\Notifications\Notification;
 use Pusher\Pusher;
 use Illuminate\Support\Facades\Log;
 
@@ -46,7 +46,7 @@ class PusherChannel
         return new Pusher($key, $secret, $appId, $options);
     }
 
-    public function send($notifiable, NewPrivateMessage $notification)
+    public function send($notifiable, Notification $notification)
     {
         if (! isset($notifiable->id)) {
             return;
