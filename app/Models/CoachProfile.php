@@ -25,7 +25,7 @@ class CoachProfile extends Model implements HasMedia
         'full_package_price'
     ];
 
-    protected $appends = ['image_url'];
+    protected $appends = ['profile_image_url'];
 
     public function registerMediaConversions(?Media $media = null): void
     {
