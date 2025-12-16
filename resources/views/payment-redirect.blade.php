@@ -236,16 +236,10 @@
             @endif
         </div>
 
-        @if($status === 'CAPTURED')
-            <a href="{{ config('app.url') }}" class="btn">العودة إلى الموقع</a>
-        @elseif($status === 'INITIATED' || $status === 'PENDING')
-            <a href="{{ config('app.url') }}" class="btn">العودة إلى الموقع</a>
+        @if($status === 'INITIATED' || $status === 'PENDING')
             <p style="color: #666; font-size: 14px; margin-top: 15px;">
-                يمكنك متابعة حالة الدفع من خلال حسابك على الموقع
+                يمكنك متابعة حالة الدفع من خلال حسابك على التطبيق
             </p>
-        @else
-            <a href="{{ config('app.url') }}" class="btn">المحاولة مرة أخرى</a>
-            <a href="{{ config('app.url') }}" class="btn btn-secondary">العودة إلى الصفحة الرئيسية</a>
         @endif
 
         @if(isset($chargeId) && $chargeId)
