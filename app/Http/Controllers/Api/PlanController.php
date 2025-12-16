@@ -29,7 +29,7 @@ class PlanController extends Controller
     public function store(CreatePlanFromPurchaseRequest $request)
     {
         // Only allow creation when there is a pending TraineePlan purchase (request authorizes it)
-        $coachProfile = $request->user()->coachProfile;
+        $coachProfile = $request->user() ? $request->user()->coachProfile : null;
         $data = $request->validated();
 
         $plan = $this->service->store($data, $coachProfile);
