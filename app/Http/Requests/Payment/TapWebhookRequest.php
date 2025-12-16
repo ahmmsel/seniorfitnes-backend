@@ -62,6 +62,7 @@ class TapWebhookRequest extends FormRequest
     {
         return [
             'tap_id' => 'required|string',
+            'tap_object' => 'required|array',
             'tap_amount' => 'required',
             'tap_currency' => 'required|string',
             'tap_status' => 'required|string',
