@@ -47,14 +47,16 @@ class PurchaseService
             'plan_type' => $data['plan_type'],
         ];
 
+        // Use real customer data from authenticated user
         $customer = [
-            'first_name' => 'Trainee',
-            'email'      => 'email@example.com',
+            'first_name' => $user->name ?? 'Customer',
+            'email'      => $user->email,
         ];
 
-        $redirect = route('tap.redirect');
-
-        $callback = route('tap.webhook');
+        // Build full absolute URLs with APP_URL from .env
+        $appUrl = config('app.url');
+        $redirect = $appUrl . '/api/payment/tap/redirect';
+        $callback = $appUrl . '/api/payment/tap/webhook';
 
         Log::debug("Log Webhook Route", ['route' => $callback]);
 
