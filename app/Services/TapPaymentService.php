@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class TapPaymentService
 {
@@ -85,7 +86,7 @@ class TapPaymentService
      */
     public function processWebhook(array $webhookData): array
     {
-        \Log::info('Processing Tap Webhook', ['data' => $webhookData]);
+        Log::info('Processing Tap Webhook', ['data' => $webhookData]);
 
         $tapId = $webhookData['tap_id'] ?? null;
         $status = $webhookData['tap_status'] ?? null;
@@ -93,7 +94,7 @@ class TapPaymentService
         $metadata = $webhookData['tap_metadata'] ?? [];
 
         if (!$tapId || !$status) {
-            \Log::error('Missing tap_id or tap_status', $webhookData);
+            Log::error('Missing tap_id or tap_status', $webhookData);
             return ['message' => 'Invalid webhook data', 'error' => true];
         }
 
@@ -108,11 +109,11 @@ class TapPaymentService
             ]
         );
 
-        \Log::info('Payment record updated', ['payment_id' => $payment->id]);
+        Log::info('Payment record updated', ['payment_id' => $payment->id]);
 
         // Ignore non-successful payments
         if (!in_array(strtoupper($status), ['CAPTURED', 'SUCCESS'])) {
-            \Log::info('Payment not successful, ignoring', ['status' => $status]);
+            Log::info('Payment not successful, ignoring', ['status' => $status]);
             return ['message' => 'Ignored (not successful)', 'processed' => false];
         }
 
@@ -123,7 +124,7 @@ class TapPaymentService
         $items = $metadata['items'] ?? null;
 
         if (!$traineeId || !$coachProfileId || !$planType) {
-            \Log::error('Missing required metadata', ['metadata' => $metadata]);
+            Log::error('Missing required metadata', ['metadata' => $metadata]);
             return ['message' => 'Missing required metadata', 'error' => true];
         }
 
@@ -132,15 +133,15 @@ class TapPaymentService
         $coach = \App\Models\CoachProfile::with('user')->find($coachProfileId);
 
         if (!$trainee) {
-            \Log::error('Trainee not found', ['trainee_id' => $traineeId]);
+            Log::error('Trainee not found', ['trainee_id' => $traineeId]);
             return ['message' => 'Trainee not found', 'error' => true];
         }
         if (!$coach) {
-            \Log::error('Coach not found', ['coach_profile_id' => $coachProfileId]);
+            Log::error('Coach not found', ['coach_profile_id' => $coachProfileId]);
             return ['message' => 'Coach profile not found', 'error' => true];
         }
 
-        \Log::info('Found trainee and coach', [
+        Log::info('Found trainee and coach', [
             'trainee_id' => $trainee->id,
             'trainee_user_id' => $trainee->user_id,
             'coach_id' => $coach->id,
@@ -154,7 +155,7 @@ class TapPaymentService
             ->exists();
 
         if ($exists) {
-            \Log::info('TraineePlan already exists', ['tap_charge_id' => $tapId]);
+            Log::info('TraineePlan already exists', ['tap_charge_id' => $tapId]);
             return ['message' => 'Already processed', 'processed' => false];
         }
 
@@ -170,7 +171,7 @@ class TapPaymentService
             'status' => 'pending',
         ]);
 
-        \Log::info('TraineePlan created', ['trainee_plan_id' => $tp->id]);
+        Log::info('TraineePlan created', ['trainee_plan_id' => $tp->id]);
 
         // Notify coach
         try {
@@ -183,12 +184,12 @@ class TapPaymentService
                     'items' => $items,
                     'tap_charge_id' => $tapId,
                 ]));
-                \Log::info('Coach notified', ['coach_user_id' => $coach->user->id]);
+                Log::info('Coach notified', ['coach_user_id' => $coach->user->id]);
             } else {
-                \Log::warning('Coach has no user account', ['coach_id' => $coach->id]);
+                Log::warning('Coach has no user account', ['coach_id' => $coach->id]);
             }
         } catch (\Throwable $e) {
-            \Log::error('Failed to send notification', [
+            Log::error('Failed to send notification', [
                 'error' => $e->getMessage(),
                 'coach_id' => $coach->id,
             ]);

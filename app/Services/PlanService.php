@@ -13,13 +13,13 @@ class PlanService
     /** List all plans with relations */
     public function index()
     {
-        return Plan::with(['coach', 'workouts', 'meals'])->get();
+        return Plan::with(['workouts', 'meals'])->get();
     }
 
     /** Show a single plan with relations */
     public function show(Plan $plan)
     {
-        return $plan->load(['coach', 'workouts', 'meals']);
+        return $plan->load(['workouts', 'meals']);
     }
 
     public function store(array $data, ?CoachProfile $coach = null): Plan
