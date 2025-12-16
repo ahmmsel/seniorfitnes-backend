@@ -9,6 +9,7 @@ use App\Http\Requests\CreatePlanFromPurchaseRequest;
 use App\Http\Requests\Workout\UpdatePlanRequest;
 use App\Services\PlanService;
 use App\Models\Plan;
+use Illuminate\Support\Facades\Log;
 
 class PlanController extends Controller
 {
@@ -37,7 +38,7 @@ class PlanController extends Controller
 
             return response()->json(['message' => 'Plan created for purchase', 'plan' => $plan], 201);
         } catch (\Exception $e) {
-            \Log::error('Plan creation failed', [
+            Log::error('Plan creation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'data' => $request->all(),
