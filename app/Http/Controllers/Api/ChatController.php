@@ -80,7 +80,7 @@ class ChatController extends Controller
         if ($participantId === $user->id) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'You cannot start a chat with yourself.',
+                'message' => __('chat.cannot_chat_with_self'),
                 'data' => [],
             ], 422);
         }

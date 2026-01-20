@@ -6,8 +6,10 @@ use App\Events\MessageSent;
 use App\Models\Chat;
 use App\Models\Message;
 use App\Models\User;
+use App\Models\TraineePlan;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\ValidationException;
 
 class ChatService
 {
@@ -85,6 +87,33 @@ class ChatService
             // Current user is trainee, participant is coach
             $coachId = $participantId;
             $traineeId = $currentUser->id;
+
+            // Check if trainee has purchased a plan from this coach
+            $traineeProfile = $currentUser->traineeProfile;
+            if (!$traineeProfile) {
+                throw ValidationException::withMessages([
+                    'chat' => __('workouts.no_trainee_profile'),
+                ]);
+            }
+
+            $hasPurchasedPlan = TraineePlan::where('trainee_id', $traineeProfile->id)
+                ->where(function ($query) use ($coachId) {
+                    $query->whereHas('coachProfile', function ($q) use ($coachId) {
+                        $q->where('user_id', $coachId);
+                    })
+                        ->orWhereHas('plan', function ($q) use ($coachId) {
+                            $q->whereHas('coach', function ($q2) use ($coachId) {
+                                $q2->where('user_id', $coachId);
+                            });
+                        });
+                })
+                ->exists();
+
+            if (!$hasPurchasedPlan) {
+                throw ValidationException::withMessages([
+                    'chat' => __('chat.no_plan_purchased'),
+                ]);
+            }
         } else {
             // Current user is coach, participant is trainee
             $coachId = $currentUser->id;
