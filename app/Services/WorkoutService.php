@@ -17,15 +17,27 @@ class WorkoutService
 
         $this->closeOldSessions($trainee->id, $workout->id);
 
-        $active = WorkoutLog::where([
+        // Check if trainee has ANY active workout (not just this specific workout)
+        $anyActive = WorkoutLog::where([
             'trainee_id' => $trainee->id,
-            'workout_id' => $workout->id,
             'status' => 'in_progress'
         ])->first();
 
-        if ($active) {
+        if ($anyActive) {
             throw ValidationException::withMessages([
-                'workout' => 'You already have this workout in progress.',
+                'workout' => 'You already have an active workout in progress. Complete it before starting a new one.',
+            ]);
+        }
+
+        // Check if trainee has completed any workout today
+        $completedToday = WorkoutLog::where('trainee_id', $trainee->id)
+            ->where('status', 'completed')
+            ->whereDate('completed_at', today())
+            ->exists();
+
+        if ($completedToday) {
+            throw ValidationException::withMessages([
+                'workout' => 'You have already completed a workout today. Please wait until tomorrow to start a new one.',
             ]);
         }
 
