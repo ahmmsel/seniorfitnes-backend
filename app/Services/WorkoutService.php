@@ -25,7 +25,7 @@ class WorkoutService
 
         if ($anyActive) {
             throw ValidationException::withMessages([
-                'workout' => 'You already have an active workout in progress. Complete it before starting a new one.',
+                'workout' => __('workouts.active_workout_exists'),
             ]);
         }
 
@@ -37,7 +37,7 @@ class WorkoutService
 
         if ($completedToday) {
             throw ValidationException::withMessages([
-                'workout' => 'You have already completed a workout today. Please wait until tomorrow to start a new one.',
+                'workout' => __('workouts.workout_completed_today'),
             ]);
         }
 
@@ -57,7 +57,7 @@ class WorkoutService
 
         $pivot = $workout->exercises()->find($exercise->id)?->pivot;
         if (!$pivot) {
-            throw ValidationException::withMessages(['exercise' => 'Exercise not part of this workout.']);
+            throw ValidationException::withMessages(['exercise' => __('workouts.exercise_not_in_workout')]);
         }
 
         $requiredSets = $pivot->sets ?? 1;
@@ -66,7 +66,7 @@ class WorkoutService
             ->count();
 
         if ($loggedSets >= $requiredSets) {
-            throw ValidationException::withMessages(['exercise' => 'All sets for this exercise are already logged.']);
+            throw ValidationException::withMessages(['exercise' => __('workouts.all_sets_logged')]);
         }
 
         ExerciseLog::create([
@@ -205,7 +205,7 @@ class WorkoutService
     {
         $trainee = Auth::user()?->traineeProfile;
         if (!$trainee) {
-            throw new AuthorizationException('No trainee profile found.');
+            throw new AuthorizationException(__('workouts.no_trainee_profile'));
         }
         return $trainee;
     }
@@ -228,7 +228,7 @@ class WorkoutService
             'workout_id' => $workoutId,
             'status' => 'in_progress',
         ])->firstOr(function () {
-            throw new ModelNotFoundException('No active workout session found.');
+            throw new ModelNotFoundException(__('workouts.no_active_session'));
         });
     }
 
