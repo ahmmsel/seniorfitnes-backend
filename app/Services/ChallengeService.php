@@ -186,9 +186,8 @@ class ChallengeService
             'badge' => $challenge->badge?->name,
             'duration_days' => $durationDays,
             'start_date' => $challenge->start_date,
-            'status' => now()->lt($challenge->start_date)
-                ? 'upcoming'
-                : (now()->gt($challenge->end_date) ? 'completed' : 'ongoing'),
+            'end_date' => $challenge->end_date,
+            'status' => $challenge->getStatus(),
             'remaining' => $challenge->remainingTime(),
         ];
     }

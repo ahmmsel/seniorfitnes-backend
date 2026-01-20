@@ -49,11 +49,39 @@ class Challenge extends Model implements HasMedia
 
     public function remainingTime(): array
     {
-        $end = now()->diff($this->end_date);
+        $now = now();
+        $end = $this->end_date;
+
+        // If challenge has ended, return zero
+        if ($now->greaterThanOrEqualTo($end)) {
+            return [
+                'days' => 0,
+                'hours' => 0,
+                'minutes' => 0,
+            ];
+        }
+
+        // Calculate time remaining
+        $diff = $now->diff($end);
         return [
-            'days' => $end->d,
-            'hours' => $end->h,
-            'minutes' => $end->i,
+            'days' => $diff->days,
+            'hours' => $diff->h,
+            'minutes' => $diff->i,
         ];
+    }
+
+    public function getStatus(): string
+    {
+        $now = now();
+
+        if ($now->lessThan($this->start_date)) {
+            return 'upcoming';
+        }
+
+        if ($now->greaterThan($this->end_date)) {
+            return 'completed';
+        }
+
+        return 'ongoing';
     }
 }
