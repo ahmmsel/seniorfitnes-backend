@@ -38,28 +38,21 @@ class TapRedirectController extends Controller
         $appRedirect = config('services.tap.mobile_redirect') ?? env('MOBILE_APP_REDIRECT_URI', 'suniorfit://payment');
 
         $chargeId = $data['id'] ?? ($data['data']['object']['id'] ?? $tapId);
+        $amount = $data['amount'] ?? ($data['data']['object']['amount'] ?? null);
+        $currency = $data['currency'] ?? ($data['data']['object']['currency'] ?? 'KWD');
 
         // Add query parameters to deep link
         $params = http_build_query([
             'status' => $status,
             'charge_id' => $chargeId,
+            'amount' => $amount,
+            'currency' => $currency,
+            'package' => 'com.seniorfitnes.app',
         ]);
         $sep = str_contains($appRedirect, '?') ? '&' : '?';
         $appRedirectWithParams = $appRedirect . $sep . $params;
 
-        // Extract payment details for the view
-        $amount = $data['amount'] ?? ($data['data']['object']['amount'] ?? null);
-        $currency = $data['currency'] ?? ($data['data']['object']['currency'] ?? 'KWD');
-        $reference = $data['reference']['transaction'] ?? ($data['data']['object']['reference']['transaction'] ?? null);
-
-        // Return Arabic Blade template with payment status
-        return view('payment-redirect', [
-            'status' => $status,
-            'chargeId' => $chargeId,
-            'amount' => $amount,
-            'currency' => $currency,
-            'reference' => $reference,
-            'appRedirect' => $appRedirectWithParams,
-        ]);
+        // Redirect directly to app without showing HTML page
+        return redirect($appRedirectWithParams);
     }
 }
