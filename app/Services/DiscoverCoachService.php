@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CoachProfile;
+use App\Models\TraineePlan;
 use Illuminate\Http\Request;
 
 class DiscoverCoachService
@@ -17,7 +18,10 @@ class DiscoverCoachService
         $perPage = $request->get('per_page', 10);
         $coaches = $query->paginate($perPage);
 
-        $coaches->getCollection()->transform(function ($coach) {
+        // Get current trainee's purchased coach IDs
+        $purchasedCoachIds = $this->getPurchasedCoachIds($request->user());
+
+        $coaches->getCollection()->transform(function ($coach) use ($purchasedCoachIds) {
             return [
                 'id' => $coach->id,
                 'user_id' => $coach->user->id,
@@ -30,10 +34,32 @@ class DiscoverCoachService
                 'workout_price' => $coach->workout_price,
                 'full_package_price' => $coach->full_package_price,
                 'profile_image_url' => $coach->profile_image_url,
+                'has_purchase' => in_array($coach->id, $purchasedCoachIds),
             ];
         });
 
         return $coaches;
+    }
+
+    /**
+     * Get list of coach profile IDs that the current user has purchased from
+     */
+    protected function getPurchasedCoachIds($user): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        $traineeProfile = $user->traineeProfile;
+        if (! $traineeProfile) {
+            return [];
+        }
+
+        return TraineePlan::where('trainee_id', $traineeProfile->id)
+            ->whereNotNull('coach_profile_id')
+            ->pluck('coach_profile_id')
+            ->unique()
+            ->toArray();
     }
 
     protected function applyFilters($query, Request $request)
@@ -51,41 +77,43 @@ class DiscoverCoachService
         ];
 
         foreach ($filters as $filter) {
-            if (!$request->filled($filter)) continue;
+            if (! $request->filled($filter)) {
+                continue;
+            }
 
             switch ($filter) {
                 case 'specialty':
                     $query->where('specialty', $request->specialty);
                     break;
                 case 'min_experience':
-                    $query->where('years_of_experience', '>=', (int)$request->min_experience);
+                    $query->where('years_of_experience', '>=', (int) $request->min_experience);
                     break;
                 case 'max_experience':
-                    $query->where('years_of_experience', '<=', (int)$request->max_experience);
+                    $query->where('years_of_experience', '<=', (int) $request->max_experience);
                     break;
                 case 'min_nutrition_price':
-                    $query->where('nutrition_price', '>=', (float)$request->min_nutrition_price);
+                    $query->where('nutrition_price', '>=', (float) $request->min_nutrition_price);
                     break;
                 case 'max_nutrition_price':
-                    $query->where('nutrition_price', '<=', (float)$request->max_nutrition_price);
+                    $query->where('nutrition_price', '<=', (float) $request->max_nutrition_price);
                     break;
                 case 'min_workout_price':
-                    $query->where('workout_price', '>=', (float)$request->min_workout_price);
+                    $query->where('workout_price', '>=', (float) $request->min_workout_price);
                     break;
                 case 'max_workout_price':
-                    $query->where('workout_price', '<=', (float)$request->max_workout_price);
+                    $query->where('workout_price', '<=', (float) $request->max_workout_price);
                     break;
                 case 'min_full_package_price':
-                    $query->where('full_package_price', '>=', (float)$request->min_full_package_price);
+                    $query->where('full_package_price', '>=', (float) $request->min_full_package_price);
                     break;
                 case 'max_full_package_price':
-                    $query->where('full_package_price', '<=', (float)$request->max_full_package_price);
+                    $query->where('full_package_price', '<=', (float) $request->max_full_package_price);
                     break;
             }
         }
     }
 
-    public function getCoach($id)
+    public function getCoach($id, $user = null)
     {
         $coach = CoachProfile::with(['user:id,name,email', 'certificates', 'transformations'])->findOrFail($id);
 
@@ -107,6 +135,9 @@ class DiscoverCoachService
             ];
         })->values();
 
+        // Check if current user has purchased from this coach
+        $purchasedCoachIds = $this->getPurchasedCoachIds($user);
+
         return [
             'id' => $coach->id,
             'user_id' => $coach->user->id,
@@ -119,6 +150,7 @@ class DiscoverCoachService
             'workout_price' => $coach->workout_price,
             'full_package_price' => $coach->full_package_price,
             'profile_image_url' => $coach->profile_image_url,
+            'has_purchase' => in_array($coach->id, $purchasedCoachIds),
             'certificates' => $certificates,
             'transformations' => $transformations,
         ];

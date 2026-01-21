@@ -13,12 +13,14 @@ class DiscoverCoachController extends Controller
     public function coaches(Request $request)
     {
         $coaches = $this->service->getCoaches($request);
+
         return response()->json($coaches, 200);
     }
 
-    public function show($coach)
+    public function show(Request $request, $coach)
     {
-        $data = $this->service->getCoach($coach);
+        $data = $this->service->getCoach($coach, $request->user());
+
         return response()->json($data, 200);
     }
 }
