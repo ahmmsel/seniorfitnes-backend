@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Google OAuth Frontend Callback
+    |--------------------------------------------------------------------------
+    |
+    | This is the deep link URL where users will be redirected after
+    | completing Google OAuth authentication. Used for mobile app integration.
+    |
+    */
+
+    'google_oauth_frontend_callback' => env('GOOGLE_OAUTH_FRONTEND_CALLBACK', 'suniorfit://auth/callback'),
+
 ];
