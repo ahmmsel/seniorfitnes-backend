@@ -254,30 +254,18 @@ class AuthController extends Controller
 
             $user->loadMissing('coachProfile', 'traineeProfile');
 
-            // Return JSON response (can be customized to redirect to frontend with token)
-            return response()->json([
-                'status' => 'success',
-                'message' => __('auth.signed_in_successfully'),
-                'data' => [
-                    'user' => [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'email' => $user->email,
-                        'has_coach_profile' => $user->coachProfile !== null,
-                        'has_trainee_profile' => $user->traineeProfile !== null,
-                    ],
-                    'auth' => [
-                        'token_type' => 'sanctum',
-                        'access_token' => $token,
-                    ],
-                ],
-            ], 200);
+            // Redirect to Flutter app with token
+            $callbackUrl = config('app.google_oauth_frontend_callback', 'suniorfit://auth/callback');
+            $redirectUrl = $callbackUrl . '?token=' . urlencode($token) . '&user_id=' . $user->id;
+
+            return redirect($redirectUrl);
         } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => __('auth.social_login_failed', ['provider' => 'Google']),
-                'error' => config('app.debug') ? $e->getMessage() : null,
-            ], 400);
+            // Redirect to Flutter app with error
+            $callbackUrl = config('app.google_oauth_frontend_callback', 'suniorfit://auth/callback');
+            $errorMessage = __('auth.social_login_failed', ['provider' => 'Google']);
+            $redirectUrl = $callbackUrl . '?error=oauth_failed&message=' . urlencode($errorMessage);
+
+            return redirect($redirectUrl);
         }
     }
 }
