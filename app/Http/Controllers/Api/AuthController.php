@@ -94,7 +94,7 @@ class AuthController extends Controller
 
         $result = [
             'status' => 'success',
-            'message' => 'Signed in successfully.',
+            'message' => __('auth.signed_in_successfully'),
             'data' => [
                 'user' => [
                     'id' => $user->id,
@@ -136,7 +136,7 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Password reset link has been sent to your email.',
+            'message' => __('auth.password_reset_link_sent'),
         ], 200);
     }
 
@@ -152,7 +152,7 @@ class AuthController extends Controller
         if (!$tokenRecord) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Invalid or expired reset token.',
+                'message' => __('auth.invalid_reset_token'),
             ], 400);
         }
 
@@ -160,7 +160,7 @@ class AuthController extends Controller
         if (!Hash::check($validated['token'], $tokenRecord->token)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Invalid or expired reset token.',
+                'message' => __('auth.invalid_reset_token'),
             ], 400);
         }
 
@@ -171,7 +171,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Reset token has expired. Please request a new one.',
+                'message' => __('auth.reset_token_expired'),
             ], 400);
         }
 
@@ -188,7 +188,7 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Password has been reset successfully. Please login with your new password.',
+            'message' => __('auth.password_reset_successfully'),
         ], 200);
     }
 }

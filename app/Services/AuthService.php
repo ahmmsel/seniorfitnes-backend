@@ -26,7 +26,7 @@ class AuthService
         $user = User::where('email', $data['email'])->first();
 
         if (!$user || !Hash::check($data['password'], $user->password)) {
-            throw new AuthenticationException('Invalid credentials.');
+            throw new AuthenticationException(__('auth.invalid_credentials'));
         }
 
         // Revoke all previous tokens
