@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,6 +38,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -76,6 +78,7 @@
             from {
                 transform: scale(0);
             }
+
             to {
                 transform: scale(1);
             }
@@ -185,9 +188,10 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
-        @if($status === 'CAPTURED')
+        @if ($status === 'CAPTURED')
             <div class="icon success">✓</div>
             <h1>تم الدفع بنجاح!</h1>
             <p class="status-message">
@@ -211,7 +215,7 @@
             <div class="detail-row">
                 <span class="detail-label">حالة الدفع:</span>
                 <span class="detail-value">
-                    @if($status === 'CAPTURED')
+                    @if ($status === 'CAPTURED')
                         <span style="color: #28a745;">مكتمل</span>
                     @elseif($status === 'INITIATED' || $status === 'PENDING')
                         <span style="color: #ffc107;">قيد المعالجة</span>
@@ -220,33 +224,35 @@
                     @endif
                 </span>
             </div>
-            
-            @if(isset($amount) && $amount)
-            <div class="detail-row">
-                <span class="detail-label">المبلغ:</span>
-                <span class="detail-value">{{ $amount }} {{ $currency ?? 'KWD' }}</span>
-            </div>
+
+            @if (isset($amount) && $amount)
+                <div class="detail-row">
+                    <span class="detail-label">المبلغ:</span>
+                    <span class="detail-value">{{ $amount }} {{ $currency ?? 'KWD' }}</span>
+                </div>
             @endif
 
-            @if(isset($reference) && $reference)
-            <div class="detail-row">
-                <span class="detail-label">رقم المرجع:</span>
-                <span class="detail-value">{{ $reference }}</span>
-            </div>
+            @if (isset($reference) && $reference)
+                <div class="detail-row">
+                    <span class="detail-label">رقم المرجع:</span>
+                    <span class="detail-value">{{ $reference }}</span>
+                </div>
             @endif
         </div>
 
-        @if($status === 'INITIATED' || $status === 'PENDING')
+        @if ($status === 'INITIATED' || $status === 'PENDING')
             <p style="color: #666; font-size: 14px; margin-top: 15px;">
                 يمكنك متابعة حالة الدفع من خلال حسابك على التطبيق
             </p>
         @endif
 
-        @if(isset($chargeId) && $chargeId)
-        <div class="charge-id">
-            معرف العملية: {{ $chargeId }}
-        </div>
+        @if (isset($chargeId) && $chargeId)
+            <div class="charge-id">
+                معرف العملية: {{ $chargeId }}
+            </div>
         @endif
+
+        <a href="{{ $appRedirect ?? 'suniorfit://payment' }}" class="btn">العودة إلى التطبيق</a>
 
         <div class="footer">
             <p>© {{ date('Y') }} Suniorfit. جميع الحقوق محفوظة.</p>
@@ -254,8 +260,14 @@
     </div>
 
     <script>
-        // No app deep-linking or auto-redirects — links go back to the website.
-        // Keep this empty to avoid attempting to open the native app from the browser.
+        // Auto-redirect to Flutter app immediately
+        (function() {
+            var appRedirect = @json($appRedirect ?? 'suniorfit://payment');
+
+            // Redirect immediately
+            window.location.href = appRedirect;
+        })();
     </script>
 </body>
+
 </html>
