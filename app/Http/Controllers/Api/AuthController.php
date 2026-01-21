@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
@@ -190,5 +191,93 @@ class AuthController extends Controller
             'status' => 'success',
             'message' => __('auth.password_reset_successfully'),
         ], 200);
+    }
+
+    // =========================================================================
+    // OAUTH WEB FLOW (Browser-based Google OAuth)
+    // =========================================================================
+
+    /**
+     * Redirect user to Google OAuth consent screen
+     * GET /auth/google/redirect
+     */
+    public function googleRedirect()
+    {
+        return Socialite::driver('google')->redirect();
+    }
+
+    /**
+     * Handle callback from Google OAuth
+     * GET /auth/google/callback
+     */
+    public function googleCallback()
+    {
+        try {
+            $googleUser = Socialite::driver('google')->user();
+
+            if (!$googleUser->getEmail()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => __('auth.social_login_failed', ['provider' => 'Google']),
+                ], 400);
+            }
+
+            // Find or create user
+            $user = User::where('google_id', $googleUser->getId())
+                ->orWhere('email', $googleUser->getEmail())
+                ->first();
+
+            if ($user) {
+                // Update Google ID if not set
+                if (empty($user->google_id)) {
+                    $user->update(['google_id' => $googleUser->getId()]);
+                }
+
+                // Verify email if not verified
+                if (empty($user->email_verified_at)) {
+                    $user->update(['email_verified_at' => now()]);
+                }
+            } else {
+                // Create new user
+                $user = User::create([
+                    'name' => $googleUser->getName() ?? explode('@', $googleUser->getEmail())[0],
+                    'email' => $googleUser->getEmail(),
+                    'google_id' => $googleUser->getId(),
+                    'password' => bcrypt(Str::random(16)),
+                    'email_verified_at' => now(),
+                ]);
+            }
+
+            // Generate token
+            $user->tokens()->where('name', 'google-oauth')->delete();
+            $token = $user->createToken('google-oauth')->plainTextToken;
+
+            $user->loadMissing('coachProfile', 'traineeProfile');
+
+            // Return JSON response (can be customized to redirect to frontend with token)
+            return response()->json([
+                'status' => 'success',
+                'message' => __('auth.signed_in_successfully'),
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'has_coach_profile' => $user->coachProfile !== null,
+                        'has_trainee_profile' => $user->traineeProfile !== null,
+                    ],
+                    'auth' => [
+                        'token_type' => 'sanctum',
+                        'access_token' => $token,
+                    ],
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => __('auth.social_login_failed', ['provider' => 'Google']),
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 400);
+        }
     }
 }
