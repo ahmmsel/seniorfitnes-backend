@@ -17,8 +17,14 @@ return new class extends Migration
             ->where('goal', 'lose_wight')
             ->update(['goal' => 'lose_weight']);
 
-        // Modify the enum column to use the corrected values
-        // Using raw SQL because Laravel doesn't support enum modification directly
+        // SQLite doesn't support MODIFY COLUMN, so we need to recreate the table
+        if (DB::getDriverName() === 'sqlite') {
+            // For SQLite, we'll just update the data. The enum constraint
+            // will be enforced at the application level via validation
+            return;
+        }
+
+        // For MySQL/PostgreSQL
         DB::statement("ALTER TABLE trainee_profiles MODIFY COLUMN goal ENUM('lose_weight', 'build_muscle', 'improve_cardio', 'maintain_fitness') NOT NULL");
     }
 
@@ -31,6 +37,10 @@ return new class extends Migration
         DB::table('trainee_profiles')
             ->where('goal', 'lose_weight')
             ->update(['goal' => 'lose_wight']);
+
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
 
         DB::statement("ALTER TABLE trainee_profiles MODIFY COLUMN goal ENUM('lose_wight', 'build_muscle', 'improve_cardio', 'maintain_fitness') NOT NULL");
     }

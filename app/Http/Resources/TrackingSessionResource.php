@@ -11,6 +11,7 @@ class TrackingSessionResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'type' => $this->type,
             'status' => $this->status,
             'distance' => $this->distance,
             'time_seconds' => $this->time_seconds,

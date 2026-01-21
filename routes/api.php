@@ -101,7 +101,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Tracking (Walking/Running)
     Route::prefix('tracking')->group(function () {
-        Route::post('start', [TrackingController::class, 'start']);
+        Route::post('walking/start', [TrackingController::class, 'startWalking']);
+        Route::post('running/start', [TrackingController::class, 'startRunning']);
         Route::post('finish', [TrackingController::class, 'finish']);
         Route::get('history', [TrackingController::class, 'history']);
     });

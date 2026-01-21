@@ -7,34 +7,38 @@ use App\Http\Requests\Tracking\FinishSessionRequest;
 use App\Http\Requests\Tracking\ShareProgressRequest;
 use App\Http\Resources\TrackingSessionResource;
 use App\Http\Resources\ProgressPostResource;
-use App\Models\TrackingSession;
-use App\Models\ProgressPost;
+use App\Services\TrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class TrackingController extends Controller
 {
+    public function __construct(protected TrackingService $trackingService) {}
+
     /**
-     * Start a new tracking session
-     * POST /api/tracking/start
+     * Start a new walking session
+     * POST /api/tracking/walking/start
      */
-    public function start(Request $request): JsonResponse
+    public function startWalking(): JsonResponse
     {
-        $trainee = $request->user()->traineeProfile;
-
-        if (!$trainee) {
-            return response()->json(['message' => 'Trainee profile not found'], 404);
-        }
-
-        $session = TrackingSession::create([
-            'trainee_id' => $trainee->id,
-            'status' => 'ongoing',
-            'started_at' => now(),
-        ]);
+        $session = $this->trackingService->startWalking();
 
         return response()->json([
-            'message' => 'Tracking session started',
+            'message' => 'Walking session started',
+            'session' => new TrackingSessionResource($session),
+        ], 201);
+    }
+
+    /**
+     * Start a new running session
+     * POST /api/tracking/running/start
+     */
+    public function startRunning(): JsonResponse
+    {
+        $session = $this->trackingService->startRunning();
+
+        return response()->json([
+            'message' => 'Running session started',
             'session' => new TrackingSessionResource($session),
         ], 201);
     }
@@ -45,30 +49,10 @@ class TrackingController extends Controller
      */
     public function finish(FinishSessionRequest $request): JsonResponse
     {
-        $trainee = $request->user()->traineeProfile;
-        $data = $request->validated();
-
-        $session = TrackingSession::where('id', $data['session_id'])
-            ->where('trainee_id', $trainee->id)
-            ->where('status', 'ongoing')
-            ->first();
-
-        if (!$session) {
-            return response()->json([
-                'message' => 'Session not found or already finished'
-            ], 404);
-        }
-
-        $session->update([
-            'status' => 'finished',
-            'distance' => $data['distance'],
-            'time_seconds' => $data['time_seconds'],
-            'bpm' => $data['bpm'] ?? null,
-            'steps' => $data['steps'] ?? null,
-            'pace' => $data['pace'] ?? null,
-            'calories' => $data['calories'] ?? null,
-            'ended_at' => now(),
-        ]);
+        $session = $this->trackingService->finishSession(
+            $request->validated()['session_id'],
+            $request->validated()
+        );
 
         return response()->json([
             'message' => 'Session finished successfully',
@@ -78,19 +62,14 @@ class TrackingController extends Controller
 
     /**
      * Get tracking history for authenticated trainee
-     * GET /api/tracking/history
+     * GET /api/tracking/history?type=walking|running
      */
     public function history(Request $request): JsonResponse
     {
-        $trainee = $request->user()->traineeProfile;
-
-        if (!$trainee) {
-            return response()->json(['message' => 'Trainee profile not found'], 404);
-        }
-
-        $sessions = TrackingSession::where('trainee_id', $trainee->id)
-            ->orderBy('started_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+        $sessions = $this->trackingService->getHistory(
+            $request->get('type'),
+            (int) $request->get('per_page', 15)
+        );
 
         return response()->json([
             'sessions' => TrackingSessionResource::collection($sessions->items()),
@@ -109,35 +88,10 @@ class TrackingController extends Controller
      */
     public function share(ShareProgressRequest $request, $sessionId): JsonResponse
     {
-        $trainee = $request->user()->traineeProfile;
-
-        $session = TrackingSession::where('id', $sessionId)
-            ->where('trainee_id', $trainee->id)
-            ->where('status', 'finished')
-            ->first();
-
-        if (!$session) {
-            return response()->json([
-                'message' => 'Session not found, does not belong to you, or is not finished'
-            ], 404);
-        }
-
-        // Check if already shared
-        $existingPost = ProgressPost::where('session_id', $sessionId)->first();
-        if ($existingPost) {
-            return response()->json([
-                'message' => 'This session has already been shared',
-                'post' => new ProgressPostResource($existingPost),
-            ], 409);
-        }
-
-        $post = ProgressPost::create([
-            'trainee_id' => $trainee->id,
-            'session_id' => $session->id,
-            'description' => $request->validated()['description'] ?? null,
-        ]);
-
-        $post->load(['trainee.user', 'session', 'likes', 'comments']);
+        $post = $this->trackingService->shareToCommnity(
+            $sessionId,
+            $request->validated()['description'] ?? null
+        );
 
         return response()->json([
             'message' => 'Progress shared to community',

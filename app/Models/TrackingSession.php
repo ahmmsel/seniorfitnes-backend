@@ -11,6 +11,7 @@ class TrackingSession extends Model
 
     protected $fillable = [
         'trainee_id',
+        'type',
         'status',
         'distance',
         'time_seconds',
