@@ -342,8 +342,6 @@
             <div class="charge-id">معرف العملية: {{ $chargeId }}</div>
         @endif
 
-        <button class="btn" disabled>معلومات الدفع فقط — لا يتم إعادة توجيه</button>
-
         <div class="footer">© {{ date('Y') }} Suniorfit. جميع الحقوق محفوظة.</div>
     </div>
 
