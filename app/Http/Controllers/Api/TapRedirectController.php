@@ -40,19 +40,24 @@ class TapRedirectController extends Controller
         $chargeId = $data['id'] ?? ($data['data']['object']['id'] ?? $tapId);
         $amount = $data['amount'] ?? ($data['data']['object']['amount'] ?? null);
         $currency = $data['currency'] ?? ($data['data']['object']['currency'] ?? 'KWD');
+        $reference = $data['reference']['transaction'] ?? ($data['data']['object']['reference']['transaction'] ?? null);
 
-        // Add query parameters to deep link
+        // Add query parameters to deep link (for display or manual copy only)
         $params = http_build_query([
             'status' => $status,
             'charge_id' => $chargeId,
-            'amount' => $amount,
-            'currency' => $currency,
-            'package' => 'com.seniorfitnes.app',
         ]);
         $sep = str_contains($appRedirect, '?') ? '&' : '?';
         $appRedirectWithParams = $appRedirect . $sep . $params;
 
-        // Redirect directly to app without showing HTML page
-        return redirect($appRedirectWithParams);
+        // Return Arabic Blade template with payment status (informational only)
+        return view('payment-redirect', [
+            'status' => $status,
+            'chargeId' => $chargeId,
+            'amount' => $amount,
+            'currency' => $currency,
+            'reference' => $reference,
+            'appRedirect' => $appRedirectWithParams,
+        ]);
     }
 }
